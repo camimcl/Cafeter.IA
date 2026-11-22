@@ -1,5 +1,5 @@
 from typing import TypedDict
-from src.schemas.pedido import Pedido
+
 
 class State(TypedDict, total=False):
     mensagem: str
@@ -8,7 +8,7 @@ class State(TypedDict, total=False):
     quer_pedir: bool
     filtros_cardapio: dict
     cardapio: list[dict]
-    pedido: Pedido
+    pedido: dict
     campos_faltantes: list[str]
     estoque_ok: bool
     faltas: list[dict]
