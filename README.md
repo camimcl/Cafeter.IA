@@ -41,7 +41,7 @@ Um **supervisor** (LangGraph) identifica a intenção da mensagem e a encaminha 
 |---|---|
 | **Supervisor** | Classifica a intenção, roteia, controla o estado compartilhado e a confirmação humana |
 | **Agente de Atendimento** | Dúvidas sobre o cardápio e recomendações |
-| **Agente de Pedidos** | Transforma o pedido em dado estruturado (Pydantic), verifica estoque, calcula o valor e finaliza o registro |
+| **Agente de Pedidos** | Carrega o cardápio, transforma o pedido em dado estruturado (Pydantic), verifica estoque, calcula o valor e finaliza o registro |
 | **Servidor MCP** | Expõe as ferramentas `consultar_cardapio`, `verificar_estoque` e `registrar_pedido` |
 | **Cliente MCP** | Conecta a aplicação ao servidor (função única `chamar_ferramenta`) |
 
@@ -51,31 +51,48 @@ Um **supervisor** (LangGraph) identifica a intenção da mensagem e a encaminha 
 flowchart TD
     A["Cliente"] --> B["Supervisor - LangGraph"]
     B --> C{"Intenção"}
-    C -->|"atendimento"| D["Agente de Atendimento"]
-    C -->|"pedido"| E["Agente de Pedidos"]
-    C -->|"fora do escopo"| Z["Recusa educada"]
 
-    D --> F["Cliente MCP"]
-    E --> F
-    F <-->|"HTTP"| G["Servidor MCP"]
-    G --> H["consultar_cardapio"]
-    G --> I["verificar_estoque"]
-    G --> J["registrar_pedido"]
-    H --> K[("Dados em JSON")]
-    I --> K
-    J --> K
+    C -->|"Dúvidas e recomendações"| D["Agente de Atendimento"]
+    C -->|"Realizar pedido"| E["Agente de Pedidos"]
+    C -->|"Fora do escopo"| Z["Recusa educada"]
 
-    D --> L["Resposta ao cliente"]
-    E --> M["Estruturar pedido - Pydantic"]
-    M --> N{"Estoque suficiente?"}
-    N -->|"Não"| O["Informar indisponibilidade"] --> L
-    N -->|"Sim"| P["Calcular valor - Python"]
-    P --> Q["Resumo do pedido"]
-    Q --> R{"Cliente confirmou?"}
-    R -->|"Não"| S["Encerrar sem registrar"] --> L
-    R -->|"Sim"| T["Registrar pedido e baixar estoque"]
-    T --> U["Confirmar ao cliente"]
+    D --> D1["Montar filtros - LLM"]
+    D1 --> D2["Tool MCP: consultar_cardapio"]
+    D2 --> D3["Escrever recomendação - LLM"]
+    D3 --> L["Resposta ao cliente"]
+
+    E --> E1["Tool MCP: consultar_cardapio<br/>nó carregar_cardapio"]
+    E1 --> E2["Estruturar pedido - LLM + Pydantic"]
+    E2 --> E3{"Dados completos?"}
+    E3 -->|"Não"| Q["Pedir esclarecimento"]
+    Q --> L
+    E3 -->|"Sim"| E4["Tool MCP: verificar_estoque"]
+    E4 --> E5{"Estoque suficiente?"}
+    E5 -->|"Não"| K["Informar indisponibilidade"]
+    K --> L
+    E5 -->|"Sim"| E6["Calcular valor - Python"]
+    E6 --> E7["Resumo do pedido e chave única"]
+    E7 --> E8{"Cliente confirmou?"}
+    E8 -->|"Não"| O["Encerrar sem registrar"]
+    O --> L
+    E8 -->|"Sim"| E9["Tool MCP: registrar_pedido"]
+    E9 --> L
+
+    D2 -.->|"servidor fora"| X["Aviso de serviço indisponível"]
+    E1 -.->|"servidor fora"| X
+    E4 -.->|"servidor fora"| X
+    E9 -.->|"servidor fora"| X
+    X --> L
+
+    classDef mcp fill:#E1F5EE,stroke:#0F6E56,color:#04342C,stroke-width:1px
+    classDef llm fill:#EEEDFE,stroke:#534AB7,color:#26215C,stroke-width:1px
+    class D2,E1,E4,E9 mcp
+    class D1,D3,E2 llm
 ```
+
+Legenda: verde-água = passo que chama o MCP; roxo = passo do LLM; sem cor = código e fluxo. As setas tracejadas são os desvios quando o servidor MCP não responde.
+
+**Chave única:** o resumo do pedido gera uma `idempotency_key` (uma por pedido). Se o registro for repetido, o servidor devolve o pedido já gravado e não baixa o estoque de novo.
 
 ### Defesa em camadas (o que fica com o LLM e o que fica com o Python)
 
@@ -83,7 +100,7 @@ flowchart TD
 |---|---|
 | LLM | Interpreta a mensagem, extrai o pedido, escreve respostas |
 | Python | Valida quantidades, calcula o valor, decide se há estoque |
-| Servidor MCP | Confere o estoque de novo ao registrar e grava tudo ou nada |
+| Servidor MCP | Confere o estoque de novo ao registrar, grava tudo ou nada e **não grava o mesmo pedido duas vezes** (`idempotency_key`) |
 | Cliente (humano) | Confirma antes de qualquer registro |
 
 ## Escopo
@@ -101,7 +118,7 @@ flowchart TD
 
 ### Depois do MVP (opcional)
 
-RAG sobre um manual da cafeteria, análise de estoque com ferramentas, comprador com revisor, versão de estado e idempotência no servidor MCP, Langfuse e avaliação automática. Detalhes no [passo a passo](docs/passo-a-passo.md#depois-do-mvp-opcional).
+RAG sobre um manual da cafeteria, análise de estoque com ferramentas, comprador com revisor, versão de estado no servidor MCP, Langfuse e avaliação automática. Detalhes no [passo a passo](docs/passo-a-passo.md#depois-do-mvp-opcional).
 
 ### Fora do escopo
 
@@ -152,7 +169,7 @@ Pastas ainda sem código têm um `.gitkeep`, que pode ser apagado quando houver 
 git clone https://github.com/camimcl/Cafeter.IA.git
 cd Cafeter.IA
 
-# 2. Ambiente virtual
+# 2. Ambiente virtual (Python 3.13)
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
 
@@ -191,6 +208,7 @@ python -m scripts.testar_mcp
 1. **Pedido:** "Olá! Gostaria de pedir dois cappuccinos com leite de aveia e um pão de queijo." → estrutura, verifica estoque, calcula, mostra o resumo, pede confirmação e registra.
 2. **Recomendação:** "Quero uma bebida gelada, doce e sem lactose. O que vocês recomendam?" → consulta o cardápio e sugere opções compatíveis.
 3. **Indisponível:** "Quero três cappuccinos com leite de aveia." → estoque insuficiente; nada é registrado e o estoque não muda.
+4. **Confirmação repetida:** reenviar o registro do mesmo pedido → o servidor devolve o pedido já registrado (`duplicate: true`) e o estoque baixa uma só vez.
 
 ## Testes
 
@@ -198,7 +216,7 @@ python -m scripts.testar_mcp
 pytest
 ```
 
-Os testes são **offline** (não chamam LLM nem a internet). Cobrem: produto existente e inexistente, estoque suficiente e insuficiente, quantidade inválida ou ausente, cancelamento antes da confirmação, pedido confirmado, pergunta fora do escopo, servidor MCP indisponível, falha de ferramenta, **estoque só muda após a confirmação** e valores iguais aos calculados em Python.
+Os testes são **offline** (não chamam LLM nem a internet). Cobrem: produto existente e inexistente, estoque suficiente e insuficiente, quantidade inválida ou ausente, cancelamento antes da confirmação, pedido confirmado, pergunta fora do escopo, servidor MCP indisponível, falha de ferramenta, **estoque só muda após a confirmação**, **pedido repetido registrado uma só vez** e valores iguais aos calculados em Python.
 
 ## Regras do projeto
 
@@ -216,7 +234,7 @@ Os testes são **offline** (não chamam LLM nem a internet). Cobrem: produto exi
 |---|---|---|
 | Pessoa 1 | Arquitetura e Supervisor | 1.1 a 1.9: contratos, `State`, `classify`, roteamento, confirmação humana, grafo, `main.py`, tratamento de falhas |
 | Pessoa 2 | Agente de Atendimento, cardápio e testes integrados | 2.1 a 2.10: `cardapio.json`, filtros, prompt, recomendação, testes dos cenários, roteiro da demo |
-| Pessoa 3 | Agente de Pedidos | 3.1 a 3.8: modelos Pydantic, cálculo de valor, extração do pedido, disponibilidade, resumo, finalização |
+| Pessoa 3 | Agente de Pedidos | 3.1 a 3.9: modelos Pydantic, cálculo de valor, **carregar cardápio**, extração do pedido, disponibilidade, resumo com **chave de idempotência**, finalização |
 | Pessoa 4 | Servidor MCP, dados e cliente | 4.1 a 4.9: dados e receitas, **stub do cliente**, ferramentas, servidor HTTP, cliente real, teste sem LLM |
 
 *(Substituir "Pessoa N" pelos nomes reais.)* O detalhe de cada etapa está em [`docs/divisao-de-responsabilidades.md`](docs/divisao-de-responsabilidades.md).

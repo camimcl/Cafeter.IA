@@ -86,11 +86,32 @@ O consumo do pedido é: para cada item, a receita (com as ações das personaliz
 
 ## `pedidos.json`
 
+Começa vazio:
+
 ```json
 {"pedidos": []}
 ```
 
-O servidor grava aqui cada pedido registrado.
+O servidor grava aqui cada pedido registrado. Cada registro guarda a `idempotency_key`; é assim que o servidor reconhece um pedido repetido:
+
+```json
+{
+  "pedidos": [
+    {
+      "pedido_id": "P-0001",
+      "idempotency_key": "3f2b8c1e-9d4a-4c7e-8a15-6b0e2f7d9a31",
+      "registrado_em": "2026-11-22T17:30:00-03:00",
+      "itens": [
+        {"produto_id": "cappuccino", "quantidade": 2, "personalizacoes": ["leite_aveia"]},
+        {"produto_id": "pao_de_queijo", "quantidade": 1, "personalizacoes": []}
+      ],
+      "total_centavos": 4200
+    }
+  ]
+}
+```
+
+Se a mesma chave chegar de novo, o servidor devolve esse pedido com `duplicate: true` e **não** baixa o estoque outra vez.
 
 ## Regras de consistência
 
@@ -113,5 +134,7 @@ Quem alterar um arquivo confere as regras antes do Pull Request.
 | Extra: 3 croissants | Estoque insuficiente: falta **1 un** de `croissant_pronto` |
 
 Conferência do cenário 1: cada cappuccino com aveia custa 1400 + 300 = 1700 centavos, dois dão 3400, mais o pão de queijo (800) dão 4200.
+
+Repetir o registro do cenário 1 com a mesma chave não altera nada: o `leite_aveia` continua em 100 ml.
 
 Depois de confirmar o cenário 1, o `leite_aveia` cai de 400 para 100 ml, e o cenário 3 continua falhando. Para repetir a demonstração do início, volte os dados ao estado original.

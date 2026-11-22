@@ -15,7 +15,7 @@ Este guia leva a equipe da primeira reunião até a demonstração. Ele mostra *
 | 4 | **Marco 3** | Integração: servidor MCP real no lugar do stub | Pessoa 1 lidera |
 | 5 | **Marco 4** | Testes dos cenários e das falhas | Pessoa 2 lidera |
 | 6 | **Marco 5** | Ensaio e demonstração | Todos |
-| 7 | | Depois do MVP (opcional): RAG, comprador e revisor, idempotência, Langfuse | A combinar |
+| 7 | | Depois do MVP (opcional): RAG, comprador e revisor, versão de estado, Langfuse | A combinar |
 
 ---
 
@@ -45,7 +45,9 @@ O que precisa ficar escrito em [`contratos.md`](contratos.md) antes de qualquer 
 4. **Contrato das três ferramentas MCP** (entradas e saídas): `consultar_cardapio`, `verificar_estoque`, `registrar_pedido`.
 5. **Formato dos dados em JSON:** cardápio, estoque, receitas e pedidos.
 6. **Códigos de erro:** os da [padronização](padronizacao.md#8-erros-e-respostas-das-ferramentas).
-7. **Decisões:** dinheiro em centavos, servidor MCP em HTTP (porta 8000), nome da variável do stub (`USAR_MCP_STUB`).
+7. **Decisões:** dinheiro em centavos, servidor MCP em HTTP (porta 8000), Python 3.13, nome da variável do stub (`USAR_MCP_STUB`).
+8. **Caminho do pedido:** o primeiro nó é `carregar_cardapio` (o LLM precisa dos ids válidos e o cálculo, dos preços); o estado ganha `cardapio` e `idempotency_key`.
+9. **Idempotência:** `idempotency_key` obrigatória no `registrar_pedido`, gerada uma vez por pedido (regras na seção 3.2 de [`contratos.md`](contratos.md)).
 
 **Pronto quando:** os quatro aprovaram o contrato em um Pull Request.
 
@@ -88,12 +90,14 @@ Cada pessoa trabalha **só nos seus arquivos**, contra o stub. A ordem e os crit
 ### Pessoa 3: pedidos
 - Modelos `ItemPedido` e `Pedido` com validações.
 - Função pura `calcular_total` (centavos, sem `float`).
-- Nó `estruturar_pedido` (saída estruturada, sem inventar dados) e `pedir_esclarecimento` (falta quantidade, produto inexistente, quantidade inválida).
-- Nós `verificar_disponibilidade`, `calcular_valor`, `montar_resumo` e `finalizar_pedido` (só roda depois do "sim").
+- Nó `carregar_cardapio`: busca o cardápio no MCP e guarda no estado, antes de tudo.
+- Nó `estruturar_pedido` (saída estruturada, usa só os ids do cardápio, sem inventar dados) e `pedir_esclarecimento` (falta quantidade, produto inexistente, quantidade inválida).
+- Nós `verificar_disponibilidade`, `calcular_valor` e `montar_resumo`, que também **gera a `idempotency_key`** (uma por pedido).
+- Nó `finalizar_pedido` (só roda depois do "sim"): envia a mesma chave sempre e trata `duplicate: true` como sucesso.
 
 ### Pessoa 4: servidor MCP e dados
 - Repositório de dados (gravação segura em JSON).
-- Ferramentas `consultar_cardapio`, `verificar_estoque` (resolve receita e personalização, **não altera nada**) e `registrar_pedido` (confere o estoque de novo, grava tudo ou nada).
+- Ferramentas `consultar_cardapio`, `verificar_estoque` (resolve receita e personalização, **não altera nada**) e `registrar_pedido` (exige a `idempotency_key`, confere o estoque de novo, grava tudo ou nada e devolve o pedido original se a chave se repetir).
 - Servidor em HTTP e cliente real.
 - `scripts/testar_mcp.py`, que testa as ferramentas sem LLM.
 
@@ -146,6 +150,8 @@ A Pessoa 2 lidera, com todos corrigindo o que aparecer.
 | Quantidade inválida ou ausente | Pede esclarecimento |
 | Cancelamento antes da confirmação | Encerra sem registrar e sem alterar o estoque |
 | Pedido confirmado | Registra uma vez e baixa o estoque |
+| Confirmação repetida ou reenvio | Mesma `idempotency_key`: devolve o pedido já registrado (`duplicate: true`); estoque baixa **uma só vez** |
+| Chave ausente, ou repetida com itens diferentes | Erro `PEDIDO_INVALIDO`, nada é registrado |
 | Pergunta fora do escopo | Recusa educada |
 | Servidor MCP indisponível | Mensagem clara, nada registrado |
 | Falha de ferramenta | Erro tratado, sem dizer ao cliente que deu certo |
@@ -172,7 +178,8 @@ Roteiro sugerido (cerca de 15 minutos), montado pela Pessoa 2 e ensaiado por tod
 5. **Demo 2:** recomendação (cenário 2).
 6. **Demo 3:** item indisponível; nada é registrado (cenário 3).
 7. **Demo 4:** servidor MCP desligado; o sistema avisa e não registra nada.
-8. **Aprendizados e próximos passos.**
+8. **Demo 5:** confirmação repetida; o pedido não é gravado duas vezes e o estoque não baixa de novo.
+9. **Aprendizados e próximos passos.**
 
 Antes da demo: reiniciar o servidor para os dados voltarem ao estado original.
 
@@ -182,6 +189,7 @@ Antes da demo: reiniciar o servidor para os dados voltarem ao estado original.
 - O que acontece se o cliente nunca confirmar?
 - Por que dinheiro em centavos?
 - O que muda se o servidor MCP cair?
+- O que impede o pedido de ser gravado duas vezes?
 
 ---
 
@@ -206,9 +214,8 @@ Estes temas reforçam o que o bootcamp ensinou. Entram quando o MVP estiver est�
 - **Aprovação do gerente** (human-in-the-loop) para compra acima de um valor.
 
 ### Servidor MCP mais seguro (sugestão: Pessoa 4)
-- Ferramenta `criar_pedido_reposicao` com `expected_state_version` e `idempotency_key`.
+- Ferramenta `criar_pedido_reposicao` com `expected_state_version` (a `idempotency_key` já existe no MVP).
 - Erros `STATE_VERSION_CONFLICT` (relê o estado e decide de novo, sem repetir às cegas) e `INVALID_SCHEMA`.
-- Repetir o mesmo comando com a mesma chave não altera o estado de novo.
 - Experimento de conflito com `SIMULAR_CONFLITO=1`.
 
 ### Observabilidade e avaliação (sugestão: Pessoa 4)

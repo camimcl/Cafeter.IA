@@ -15,7 +15,7 @@ Em caso de dúvida, vale o que está aqui. Para mudar uma regra, abra um Pull Re
 | Documentação, README, comentários, docstrings | Português (pt-BR) |
 | Mensagens mostradas ao cliente e prompts dos agentes | Português (pt-BR), tom simpático e direto |
 | Nomes de funções, variáveis, arquivos, pastas e campos | Português, **sem acento e sem cedilha** (`calcular_total`, `quantidade`, `personalizacoes`) |
-| Termos técnicos consagrados | Ficam em inglês (`State`, `prompt`, `tool`, `retry`, `stub`, `mock`) |
+| Termos técnicos consagrados | Ficam em inglês (`State`, `prompt`, `tool`, `retry`, `stub`, `mock`, `idempotency_key`, `duplicate`) |
 | Mensagens de commit | Português |
 
 Misturar é aceitável **só** nos casos da tabela. Evite criar nomes como `calcularTotal` ou `get_pedido_total`.
@@ -139,7 +139,7 @@ Códigos de erro padronizados (novos códigos entram neste arquivo antes de sere
 
 ## 9. Estilo de código
 
-- Python **3.11 ou superior**.
+- Python **3.13** (todos usam a mesma versão; confira com `python --version`).
 - **Type hints** em todas as funções públicas.
 - **Docstring curta** (uma ou duas linhas, em português) em toda função pública e em toda ferramenta MCP. No MCP, a docstring vira a descrição que o modelo lê, então escreva com clareza.
 - Formatação e imports: `ruff` (linha máxima de 100 caracteres, configurada no `pyproject.toml`). Rode antes de cada commit:
