@@ -69,15 +69,19 @@ Cada nó devolve **só o que mudou**.
 
 O grafo pausa no nó `confirmar_pedido` mostrando o `resumo` (texto feito pela Pessoa 3). O cliente responde sim ou não, e o grafo retoma com `confirmado: true` ou `false`. Só `confirmado: true` chega ao `finalizar_pedido`.
 
-## 8. Formatos de dados (a definir no Marco 0)
+## 8. Formatos de dados
 
-Arquivos em `dados/`: `cardapio.json` (Pessoa 2), `estoque.json`, `receitas.json` e `pedidos.json` (Pessoa 4).
+Os arquivos de exemplo estão em [`dados/`](../dados/), com o formato de cada campo e as regras de consistência em [`dados/README.md`](../dados/README.md).
 
-- Dinheiro em **centavos inteiros** (`preco_centavos`).
-- Identificadores em `snake_case` e estáveis (`cappuccino`, `leite_aveia`).
-- `receitas.json`: ingredientes por unidade de produto e **substituições por personalização** (ex.: leite de aveia no lugar do leite integral).
+| Arquivo | Dono | Resumo |
+|---|---|---|
+| `cardapio.json` | Pessoa 2 | `produtos` com `id`, `nome`, `categoria`, `descricao`, `preco_centavos`, `temperatura`, `doce`, `sem_lactose`, `alergenos`, `personalizacoes` |
+| `estoque.json` | Pessoa 4 | `ingredientes` com `id`, `nome`, `unidade`, `quantidade`, `quantidade_minima` |
+| `receitas.json` | Pessoa 4 | `receitas` por produto: ingredientes de uma unidade e ações por personalização (`substituir`, `adicionar`, `remover`) |
+| `pedidos.json` | Pessoa 4 | `pedidos` registrados (começa vazio) |
 
-_Colem aqui um exemplo real de cada arquivo depois de aprovado._
+- Dinheiro em **centavos inteiros**; identificadores em `snake_case`.
+- Os arquivos se ligam por `id` (produto, personalização, ingrediente). A consistência entre eles está nas regras de `dados/README.md`.
 
 ## 9. Decisões tomadas
 
@@ -86,3 +90,21 @@ _Colem aqui um exemplo real de cada arquivo depois de aprovado._
 | Transporte do MCP | HTTP local, servidor em outro terminal | 22/11/2026 |
 | Dinheiro | Centavos inteiros (a confirmar) | |
 | Porta do servidor | 8000 (a confirmar) | |
+| Formato dos dados | Exemplos em `dados/` (aprovar na reunião) | |
+
+## 10. Pontos a decidir no Marco 0
+
+Lacunas encontradas ao montar os dados de exemplo. Cada uma tem uma recomendação; a equipe aprova ou ajusta e depois atualiza os documentos.
+
+| # | Ponto | Recomendação | Quem é afetado |
+|---|---|---|---|
+| 1 | **Como o LLM conhece os `produto_id` válidos?** Hoje `estruturar_pedido` roda antes de qualquer chamada ao MCP, mas o modelo precisa da lista de produtos e personalizações para extrair ids corretos. O cálculo do valor também precisa dos preços | Novo nó `carregar_cardapio` (MCP `consultar_cardapio` sem filtros) **antes** de `estruturar_pedido`, com o resultado guardado no estado (campo `cardapio`) e reaproveitado em `calcular_valor` | Pessoas 1 (estado e grafo) e 3 |
+| 2 | **"Sem lactose" e personalizações:** um cappuccino com leite de aveia fica sem lactose, mas `sem_lactose` descreve só o produto base | Campo `torna_sem_lactose` em cada personalização; o filtro `sem_lactose` devolve produtos com `sem_lactose: true` **ou** com alguma personalização que torna sem lactose | Pessoas 2 e 4 |
+| 3 | **Campos novos no cardápio** além do contrato original: `descricao` (ajuda a recomendação) e `torna_sem_lactose` | Aceitar os dois | Pessoas 2, 3 e 4 |
+| 4 | **Total do pedido:** `registrar_pedido` recebe `total_centavos` da aplicação. Quem garante que está certo? | O servidor recalcula com o cardápio e rejeita divergência com `PEDIDO_INVALIDO` | Pessoa 4 |
+| 5 | **Pedido duplicado:** um reenvio por falha de rede, ou uma confirmação repetida, gravaria o pedido duas vezes | `idempotency_key` opcional em `registrar_pedido`; mesma chave devolve o pedido já registrado, sem baixar o estoque de novo | Pessoas 3 e 4 |
+| 6 | **Voltar os dados ao início:** testes e demonstrações alteram `estoque.json` e `pedidos.json` e sujam o Git | Os arquivos do Git são **sementes**; ao subir, o servidor copia para `estoque.runtime.json` e `pedidos.runtime.json` (já ignorados pelo `.gitignore`) e trabalha neles | Pessoa 4 |
+| 7 | **Limite de quantidade por item** (`MAX_QUANTIDADE_POR_ITEM`) | 10 unidades. Validado no modelo `ItemPedido` e de novo no servidor | Pessoas 3 e 4 |
+| 8 | **Formato de `pedido_id`** | `P-0001`, sequencial, gerado pelo servidor | Pessoa 4 |
+| 9 | **Do atendimento para o pedido:** a flag `quer_pedir` precisa de uma função de roteamento | `route_after_atendimento` em `routing.py` | Pessoa 1 |
+

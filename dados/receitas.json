@@ -1,0 +1,183 @@
+{
+  "receitas": {
+    "espresso": {
+      "ingredientes": [
+        {
+          "ingrediente": "cafe_graos",
+          "quantidade": 18
+        }
+      ],
+      "personalizacoes": {}
+    },
+    "cappuccino": {
+      "ingredientes": [
+        {
+          "ingrediente": "cafe_graos",
+          "quantidade": 18
+        },
+        {
+          "ingrediente": "leite_integral",
+          "quantidade": 150
+        }
+      ],
+      "personalizacoes": {
+        "leite_aveia": [
+          {
+            "acao": "substituir",
+            "ingrediente": "leite_integral",
+            "por": "leite_aveia"
+          }
+        ],
+        "extra_shot": [
+          {
+            "acao": "adicionar",
+            "ingrediente": "cafe_graos",
+            "quantidade": 18
+          }
+        ]
+      }
+    },
+    "latte": {
+      "ingredientes": [
+        {
+          "ingrediente": "cafe_graos",
+          "quantidade": 18
+        },
+        {
+          "ingrediente": "leite_integral",
+          "quantidade": 200
+        }
+      ],
+      "personalizacoes": {
+        "leite_aveia": [
+          {
+            "acao": "substituir",
+            "ingrediente": "leite_integral",
+            "por": "leite_aveia"
+          }
+        ],
+        "extra_shot": [
+          {
+            "acao": "adicionar",
+            "ingrediente": "cafe_graos",
+            "quantidade": 18
+          }
+        ]
+      }
+    },
+    "mocha": {
+      "ingredientes": [
+        {
+          "ingrediente": "cafe_graos",
+          "quantidade": 18
+        },
+        {
+          "ingrediente": "leite_integral",
+          "quantidade": 150
+        },
+        {
+          "ingrediente": "calda_chocolate",
+          "quantidade": 30
+        }
+      ],
+      "personalizacoes": {
+        "leite_aveia": [
+          {
+            "acao": "substituir",
+            "ingrediente": "leite_integral",
+            "por": "leite_aveia"
+          }
+        ],
+        "extra_shot": [
+          {
+            "acao": "adicionar",
+            "ingrediente": "cafe_graos",
+            "quantidade": 18
+          }
+        ]
+      }
+    },
+    "cafe_gelado_caramelo": {
+      "ingredientes": [
+        {
+          "ingrediente": "cafe_graos",
+          "quantidade": 18
+        },
+        {
+          "ingrediente": "calda_caramelo_vegana",
+          "quantidade": 30
+        },
+        {
+          "ingrediente": "gelo",
+          "quantidade": 120
+        }
+      ],
+      "personalizacoes": {}
+    },
+    "chocolate_gelado": {
+      "ingredientes": [
+        {
+          "ingrediente": "calda_chocolate",
+          "quantidade": 40
+        },
+        {
+          "ingrediente": "leite_integral",
+          "quantidade": 200
+        },
+        {
+          "ingrediente": "gelo",
+          "quantidade": 120
+        }
+      ],
+      "personalizacoes": {
+        "leite_aveia": [
+          {
+            "acao": "substituir",
+            "ingrediente": "leite_integral",
+            "por": "leite_aveia"
+          }
+        ]
+      }
+    },
+    "cha_gelado_pessego": {
+      "ingredientes": [
+        {
+          "ingrediente": "cha_pessego",
+          "quantidade": 200
+        },
+        {
+          "ingrediente": "gelo",
+          "quantidade": 150
+        }
+      ],
+      "personalizacoes": {}
+    },
+    "pao_de_queijo": {
+      "ingredientes": [
+        {
+          "ingrediente": "pao_de_queijo_massa",
+          "quantidade": 2
+        }
+      ],
+      "personalizacoes": {}
+    },
+    "brownie": {
+      "ingredientes": [
+        {
+          "ingrediente": "brownie_pronto",
+          "quantidade": 1
+        }
+      ],
+      "personalizacoes": {}
+    },
+    "croissant": {
+      "ingredientes": [
+        {
+          "ingrediente": "croissant_pronto",
+          "quantidade": 1
+        }
+      ],
+      "personalizacoes": {}
+    }
+  }
+}

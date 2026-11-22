@@ -1,0 +1,188 @@
+{
+  "produtos": [
+    {
+      "id": "espresso",
+      "nome": "Espresso",
+      "categoria": "bebida",
+      "descricao": "Café curto e intenso.",
+      "preco_centavos": 700,
+      "temperatura": "quente",
+      "doce": false,
+      "sem_lactose": true,
+      "alergenos": [],
+      "personalizacoes": []
+    },
+    {
+      "id": "cappuccino",
+      "nome": "Cappuccino",
+      "categoria": "bebida",
+      "descricao": "Espresso com leite vaporizado e espuma cremosa.",
+      "preco_centavos": 1400,
+      "temperatura": "quente",
+      "doce": false,
+      "sem_lactose": false,
+      "alergenos": [
+        "leite"
+      ],
+      "personalizacoes": [
+        {
+          "id": "leite_aveia",
+          "nome": "Leite de aveia",
+          "acrescimo_centavos": 300,
+          "torna_sem_lactose": true
+        },
+        {
+          "id": "extra_shot",
+          "nome": "Shot extra de espresso",
+          "acrescimo_centavos": 400,
+          "torna_sem_lactose": false
+        }
+      ]
+    },
+    {
+      "id": "latte",
+      "nome": "Latte",
+      "categoria": "bebida",
+      "descricao": "Espresso com bastante leite vaporizado, suave.",
+      "preco_centavos": 1500,
+      "temperatura": "quente",
+      "doce": false,
+      "sem_lactose": false,
+      "alergenos": [
+        "leite"
+      ],
+      "personalizacoes": [
+        {
+          "id": "leite_aveia",
+          "nome": "Leite de aveia",
+          "acrescimo_centavos": 300,
+          "torna_sem_lactose": true
+        },
+        {
+          "id": "extra_shot",
+          "nome": "Shot extra de espresso",
+          "acrescimo_centavos": 400,
+          "torna_sem_lactose": false
+        }
+      ]
+    },
+    {
+      "id": "mocha",
+      "nome": "Mocha",
+      "categoria": "bebida",
+      "descricao": "Espresso com calda de chocolate e leite vaporizado.",
+      "preco_centavos": 1700,
+      "temperatura": "quente",
+      "doce": true,
+      "sem_lactose": false,
+      "alergenos": [
+        "leite"
+      ],
+      "personalizacoes": [
+        {
+          "id": "leite_aveia",
+          "nome": "Leite de aveia",
+          "acrescimo_centavos": 300,
+          "torna_sem_lactose": true
+        },
+        {
+          "id": "extra_shot",
+          "nome": "Shot extra de espresso",
+          "acrescimo_centavos": 400,
+          "torna_sem_lactose": false
+        }
+      ]
+    },
+    {
+      "id": "cafe_gelado_caramelo",
+      "nome": "Café gelado com caramelo",
+      "categoria": "bebida",
+      "descricao": "Café com gelo e calda de caramelo vegana.",
+      "preco_centavos": 1600,
+      "temperatura": "gelado",
+      "doce": true,
+      "sem_lactose": true,
+      "alergenos": [],
+      "personalizacoes": []
+    },
+    {
+      "id": "chocolate_gelado",
+      "nome": "Chocolate gelado",
+      "categoria": "bebida",
+      "descricao": "Chocolate cremoso com leite e gelo.",
+      "preco_centavos": 1500,
+      "temperatura": "gelado",
+      "doce": true,
+      "sem_lactose": false,
+      "alergenos": [
+        "leite"
+      ],
+      "personalizacoes": [
+        {
+          "id": "leite_aveia",
+          "nome": "Leite de aveia",
+          "acrescimo_centavos": 300,
+          "torna_sem_lactose": true
+        }
+      ]
+    },
+    {
+      "id": "cha_gelado_pessego",
+      "nome": "Chá gelado de pêssego",
+      "categoria": "bebida",
+      "descricao": "Chá preto com pêssego, bem refrescante.",
+      "preco_centavos": 1200,
+      "temperatura": "gelado",
+      "doce": true,
+      "sem_lactose": true,
+      "alergenos": [],
+      "personalizacoes": []
+    },
+    {
+      "id": "pao_de_queijo",
+      "nome": "Pão de queijo",
+      "categoria": "comida",
+      "descricao": "Porção de pão de queijo quentinho.",
+      "preco_centavos": 800,
+      "temperatura": "quente",
+      "doce": false,
+      "sem_lactose": false,
+      "alergenos": [
+        "leite",
+        "ovo"
+      ],
+      "personalizacoes": []
+    },
+    {
+      "id": "brownie",
+      "nome": "Brownie",
+      "categoria": "comida",
+      "descricao": "Brownie de chocolate úmido.",
+      "preco_centavos": 1100,
+      "temperatura": "ambiente",
+      "doce": true,
+      "sem_lactose": false,
+      "alergenos": [
+        "leite",
+        "ovo",
+        "gluten"
+      ],
+      "personalizacoes": []
+    },
+    {
+      "id": "croissant",
+      "nome": "Croissant",
+      "categoria": "comida",
+      "descricao": "Croissant folhado de manteiga.",
+      "preco_centavos": 1300,
+      "temperatura": "ambiente",
+      "doce": false,
+      "sem_lactose": false,
+      "alergenos": [
+        "leite",
+        "gluten"
+      ],
+      "personalizacoes": []
+    }
+  ]
+}

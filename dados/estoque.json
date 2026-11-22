@@ -1,0 +1,74 @@
+{
+  "ingredientes": [
+    {
+      "id": "cafe_graos",
+      "nome": "Café em grãos",
+      "unidade": "g",
+      "quantidade": 1500,
+      "quantidade_minima": 300
+    },
+    {
+      "id": "leite_integral",
+      "nome": "Leite integral",
+      "unidade": "ml",
+      "quantidade": 5000,
+      "quantidade_minima": 1000
+    },
+    {
+      "id": "leite_aveia",
+      "nome": "Leite de aveia",
+      "unidade": "ml",
+      "quantidade": 400,
+      "quantidade_minima": 300
+    },
+    {
+      "id": "calda_chocolate",
+      "nome": "Calda de chocolate",
+      "unidade": "ml",
+      "quantidade": 600,
+      "quantidade_minima": 150
+    },
+    {
+      "id": "calda_caramelo_vegana",
+      "nome": "Calda de caramelo vegana",
+      "unidade": "ml",
+      "quantidade": 500,
+      "quantidade_minima": 100
+    },
+    {
+      "id": "cha_pessego",
+      "nome": "Chá de pêssego concentrado",
+      "unidade": "ml",
+      "quantidade": 3000,
+      "quantidade_minima": 500
+    },
+    {
+      "id": "gelo",
+      "nome": "Gelo",
+      "unidade": "g",
+      "quantidade": 5000,
+      "quantidade_minima": 1000
+    },
+    {
+      "id": "pao_de_queijo_massa",
+      "nome": "Pão de queijo (unidade)",
+      "unidade": "un",
+      "quantidade": 24,
+      "quantidade_minima": 6
+    },
+    {
+      "id": "brownie_pronto",
+      "nome": "Brownie pronto",
+      "unidade": "un",
+      "quantidade": 12,
+      "quantidade_minima": 3
+    },
+    {
+      "id": "croissant_pronto",
+      "nome": "Croissant pronto",
+      "unidade": "un",
+      "quantidade": 2,
+      "quantidade_minima": 2
+    }
+  ]
+}
