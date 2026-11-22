@@ -6,11 +6,13 @@ class State(TypedDict, total=False):
     resposta: str
     quer_pedir: bool
     filtros_cardapio: dict
+    cardapio: list[dict]
     pedido: Pedido
     campos_faltantes: list[str]
     estoque_ok: bool
-    faltas: list[str]
+    faltas: list[dict]
     total_centavos: int
     resumo: str
+    idempotency_key: str
     confirmado: bool
     pedido_id: str
