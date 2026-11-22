@@ -1,8 +1,8 @@
 # ☕ Cafeter.IA
 
-Assistente inteligente para **atendimento, pedidos e estoque** de cafeterias, construído com Python, LangChain e LangGraph.
+Assistente inteligente para **atendimento, pedidos e estoque** de cafeterias, construído com Python, LangChain, LangGraph e **MCP** (Model Context Protocol).
 
-> **Princípio da solução:** a IA interpreta e orienta; as ferramentas executam; o Python valida e calcula; o LangGraph coordena o fluxo.
+> **Princípio da solução:** a IA interpreta e orienta; as ferramentas executam; o Python valida e calcula; o MCP padroniza a comunicação; o LangGraph coordena o fluxo.
 
 ---
 
@@ -11,7 +11,7 @@ Assistente inteligente para **atendimento, pedidos e estoque** de cafeterias, co
 1. [Visão geral](#visão-geral)
 2. [Problema de negócio](#problema-de-negócio)
 3. [Como funciona](#como-funciona)
-4. [Escopo por versão](#escopo-por-versão)
+4. [Escopo](#escopo)
 5. [Tecnologias](#tecnologias)
 6. [Estrutura do repositório](#estrutura-do-repositório)
 7. [Como rodar](#como-rodar)
@@ -27,7 +27,7 @@ Assistente inteligente para **atendimento, pedidos e estoque** de cafeterias, co
 
 O Cafeter.IA entende pedidos em linguagem natural, consulta o cardápio, recomenda produtos, estrutura pedidos, verifica a disponibilidade dos ingredientes, calcula o valor total e só registra o pedido depois da **confirmação humana**.
 
-Na versão completa, o projeto também responde dúvidas de política e receita com **RAG**, analisa o estoque do dia e executa reposições por um **servidor MCP** com versão de estado e idempotência, com um agente comprador e um revisor independente.
+As operações da cafeteria (consultar cardápio, verificar estoque, registrar pedido) ficam em um **servidor MCP** que roda em um processo separado e conversa com a aplicação por **HTTP local**. A aplicação descobre e chama essas ferramentas por um cliente MCP.
 
 ## Problema de negócio
 
@@ -35,92 +35,115 @@ Cafeterias lidam todo dia com atendimento, cardápio, pedidos e controle de insu
 
 ## Como funciona
 
-Um **supervisor** (LangGraph) identifica a intenção da mensagem e a encaminha ao componente certo.
+Um **supervisor** (LangGraph) identifica a intenção da mensagem e a encaminha ao agente certo.
 
 | Componente | Responsabilidade |
 |---|---|
-| **Supervisor** | Classifica a intenção, roteia e controla o estado compartilhado |
+| **Supervisor** | Classifica a intenção, roteia, controla o estado compartilhado e a confirmação humana |
 | **Agente de Atendimento** | Dúvidas sobre o cardápio e recomendações |
-| **Agente de Pedidos** | Transforma o pedido em dado estruturado (Pydantic), pede confirmação |
-| **Ferramentas de Estoque** | Consultar, verificar, atualizar e alertar estoque baixo (Python determinístico) |
-| **RAG** *(versão completa)* | Manual da cafeteria: receitas, alérgenos, validade, políticas |
-| **Comprador + Revisor** *(versão completa)* | Propõem e julgam reposições de estoque |
-| **Servidor MCP** *(versão completa)* | Porta de entrada das ações sobre o estoque |
+| **Agente de Pedidos** | Transforma o pedido em dado estruturado (Pydantic), verifica estoque, calcula o valor e finaliza o registro |
+| **Servidor MCP** | Expõe as ferramentas `consultar_cardapio`, `verificar_estoque` e `registrar_pedido` |
+| **Cliente MCP** | Conecta a aplicação ao servidor (função única `chamar_ferramenta`) |
 
-### Fluxo do MVP
+### Fluxo principal
 
 ```mermaid
 flowchart TD
     A["Cliente"] --> B["Supervisor - LangGraph"]
     B --> C{"Intenção"}
-    C -->|"Dúvidas e recomendações"| D["Agente de Atendimento"]
-    C -->|"Realizar pedido"| E["Agente de Pedidos"]
-    C -->|"Fora do escopo"| Z["Recusa educada"]
-    D --> F["Tool: consultar cardápio"] --> G["Resposta ao cliente"]
-    E --> H["Estruturar pedido - Pydantic"]
-    H --> I["Tool: verificar estoque"]
-    I --> J{"Estoque suficiente?"}
-    J -->|"Não"| K["Informar indisponibilidade"] --> G
-    J -->|"Sim"| L["Tool: calcular valor"]
-    L --> M["Resumo do pedido"]
-    M --> N{"Cliente confirmou?"}
-    N -->|"Não"| O["Encerrar sem registrar"] --> G
-    N -->|"Sim"| P["Tool: registrar pedido"]
-    P --> Q["Tool: atualizar estoque"]
-    Q --> R["Confirmar ao cliente"]
+    C -->|"atendimento"| D["Agente de Atendimento"]
+    C -->|"pedido"| E["Agente de Pedidos"]
+    C -->|"fora do escopo"| Z["Recusa educada"]
+
+    D --> F["Cliente MCP"]
+    E --> F
+    F <-->|"HTTP"| G["Servidor MCP"]
+    G --> H["consultar_cardapio"]
+    G --> I["verificar_estoque"]
+    G --> J["registrar_pedido"]
+    H --> K[("Dados em JSON")]
+    I --> K
+    J --> K
+
+    D --> L["Resposta ao cliente"]
+    E --> M["Estruturar pedido - Pydantic"]
+    M --> N{"Estoque suficiente?"}
+    N -->|"Não"| O["Informar indisponibilidade"] --> L
+    N -->|"Sim"| P["Calcular valor - Python"]
+    P --> Q["Resumo do pedido"]
+    Q --> R{"Cliente confirmou?"}
+    R -->|"Não"| S["Encerrar sem registrar"] --> L
+    R -->|"Sim"| T["Registrar pedido e baixar estoque"]
+    T --> U["Confirmar ao cliente"]
 ```
 
-### Fluxo da versão completa (visão resumida)
+### Defesa em camadas (o que fica com o LLM e o que fica com o Python)
 
-```text
-START → classify
-  atendimento → consultar cardápio → resposta
-  pedido      → estruturar → verificar estoque → calcular → confirmação humana → registrar
-  regra       → retrieve (manual) → grade → generate  |  nao_encontrado
-  analise     → retrieve (estoque) → extract → analyze ⇄ tools → resposta
-  acao        → ler_estado (MCP) → comprador → revisor → validar
-                  → aprovação do gerente → executar (MCP) → reler | confirmar
-  fora_escopo → refuse
-```
-
-## Escopo por versão
-
-| Versão | Conteúdo |
+| Quem | Faz |
 |---|---|
-| **MVP** | Atendimento, cardápio, recomendação, pedido estruturado, estoque como ferramentas Python, cálculo determinístico, confirmação humana, atualização de estoque |
-| **Completa** | MVP + RAG (roteamento, grade, "não encontrado", extração estruturada), análise de estoque com tools, comprador + revisor, servidor MCP (versão de estado e idempotência), aprovação do gerente, Langfuse e avaliação automática |
+| LLM | Interpreta a mensagem, extrai o pedido, escreve respostas |
+| Python | Valida quantidades, calcula o valor, decide se há estoque |
+| Servidor MCP | Confere o estoque de novo ao registrar e grava tudo ou nada |
+| Cliente (humano) | Confirma antes de qualquer registro |
 
-Fora do escopo: pagamento real, interface gráfica elaborada, banco de dados em produção, previsão de demanda com ML, acompanhamento de entregas.
+## Escopo
+
+### MVP (obrigatório)
+
+1. Atendimento por linguagem natural
+2. Consulta ao cardápio e recomendação de produtos
+3. Identificação e estruturação de pedidos (Pydantic)
+4. Consulta à disponibilidade de ingredientes
+5. Cálculo determinístico do valor do pedido
+6. Confirmação antes do registro (human-in-the-loop)
+7. Atualização do estoque após a confirmação
+8. Comunicação com as ferramentas via MCP (servidor local em HTTP)
+
+### Depois do MVP (opcional)
+
+RAG sobre um manual da cafeteria, análise de estoque com ferramentas, comprador com revisor, versão de estado e idempotência no servidor MCP, Langfuse e avaliação automática. Detalhes no [passo a passo](docs/passo-a-passo.md#depois-do-mvp-opcional).
+
+### Fora do escopo
+
+Pagamento real, interface gráfica elaborada, banco de dados em produção, integrações externas, previsão de demanda com ML, múltiplos servidores MCP e acompanhamento de entregas.
 
 ## Tecnologias
 
-Python · LangChain · LangGraph · Pydantic · Tool calling · RAG (`InMemoryVectorStore`) · FastMCP · Langfuse (opcional) · JSON para dados simulados · pytest
+Python · LangChain · LangGraph · Pydantic · Tool calling · FastMCP (servidor) e cliente MCP · JSON para dados simulados · pytest · ruff · Langfuse (opcional)
 
 ## Estrutura do repositório
 
 ```text
 Cafeter.IA/
 ├── README.md
-├── .env.example            # modelo de variáveis (copie para .env)
+├── .env.example              # modelo de variáveis (copie para .env)
 ├── .gitignore
 ├── requirements.txt
 ├── requirements-dev.txt
 ├── pyproject.toml
-├── docs/                   # passo a passo, contratos e decisões
-├── dados/                  # cardápio, estoque, manual, relatório e gabarito (JSON/TXT)
-├── mcp_server/             # servidor MCP (serviço separado; versão completa)
-├── scripts/                # testar_mcp.py, avaliar.py
+├── docs/
+│   ├── CafeterIA.md                       # visão geral e escopo do projeto
+│   ├── passo-a-passo.md                   # guia de implementação em fases
+│   ├── divisao-de-responsabilidades.md    # etapas de cada pessoa e contratos
+│   ├── padronizacao.md                    # nomes, estilo, Git, testes
+│   └── contratos.md                       # formatos de entrada e saída entre componentes
+├── dados/                    # cardapio.json, estoque.json, receitas.json, pedidos.json
+├── mcp_server/               # servidor MCP (processo separado) e acesso aos dados
+├── scripts/                  # testar_mcp.py (teste das ferramentas sem LLM)
 ├── src/
-│   ├── app/                # ponto de entrada (main.py)
+│   ├── app/                  # main.py (conversa no terminal)
 │   ├── graph/
-│   │   ├── nodes/          # um arquivo por nó do grafo
-│   │   └── prompts/        # um arquivo por prompt
-│   ├── schemas/            # modelos Pydantic (Pedido, ItemPedido, ...)
-│   └── utils/              # llm_adapter, vector_store, mcp_client, langfuse_client
-└── tests/                  # testes offline (sem chamar LLM)
+│   │   ├── state.py          # estado compartilhado
+│   │   ├── builder.py        # montagem do grafo
+│   │   ├── routing.py        # funções de roteamento (route_*)
+│   │   ├── nodes/            # um arquivo por nó
+│   │   └── prompts/          # um arquivo por prompt
+│   ├── schemas/              # modelos Pydantic (Pedido, FiltroCardapio, ...)
+│   └── utils/                # llm_adapter, mcp_client, mcp_stub, valores
+└── tests/                    # testes offline (sem chamar LLM); e2e/ para os cenários
 ```
 
-As pastas começam vazias (cada uma tem um `.gitkeep`, que pode ser apagado quando houver arquivos reais).
+Pastas ainda sem código têm um `.gitkeep`, que pode ser apagado quando houver arquivos reais.
 
 ## Como rodar
 
@@ -141,21 +164,33 @@ cp .env.example .env             # Windows: copy .env.example .env
 # edite o .env e preencha a chave. Nunca faça commit do .env.
 ```
 
-Execução (disponível conforme as fases do [passo a passo](docs/passo-a-passo.md) forem concluídas):
+A aplicação usa **dois terminais**, porque o servidor MCP é um processo separado:
 
 ```bash
-python -m src.app.main            # aplicação
-python mcp_server/server.py       # servidor MCP, em outro terminal (versão completa)
-python -m scripts.avaliar         # avaliação com perguntas de gabarito
+# Terminal 1: servidor MCP (HTTP em http://127.0.0.1:8000/mcp)
+python mcp_server/server.py
+
+# Terminal 2: aplicação
+python -m src.app.main
 ```
+
+Se o servidor não estiver no ar, a aplicação avisa que o serviço está indisponível e não registra nada.
+
+Para desenvolver sem o servidor, use o *stub* do cliente MCP (respostas fixas): defina `USAR_MCP_STUB=1` no `.env`.
+
+Para testar as ferramentas do servidor sem LLM:
+
+```bash
+python -m scripts.testar_mcp
+```
+
+> Os comandos ficam disponíveis conforme as fases do [passo a passo](docs/passo-a-passo.md) forem concluídas.
 
 ## Cenários de demonstração
 
-1. **Pedido:** "Quero dois cappuccinos com leite de aveia e um pão de queijo." → estrutura, verifica estoque, calcula, pede confirmação e registra.
-2. **Recomendação:** "Quero uma bebida gelada, doce e sem lactose." → consulta o cardápio e sugere opções compatíveis.
-3. **Indisponível:** "Quero três cappuccinos com leite de aveia." → estoque insuficiente, nada é registrado.
-4. **Regra (completa):** "Qual a validade do leite aberto?" → RAG; se o manual não tiver, responde "Não encontrado".
-5. **Reposição (completa):** o agente propõe repor um item, o revisor aprova, o gerente confirma, o MCP executa uma única vez.
+1. **Pedido:** "Olá! Gostaria de pedir dois cappuccinos com leite de aveia e um pão de queijo." → estrutura, verifica estoque, calcula, mostra o resumo, pede confirmação e registra.
+2. **Recomendação:** "Quero uma bebida gelada, doce e sem lactose. O que vocês recomendam?" → consulta o cardápio e sugere opções compatíveis.
+3. **Indisponível:** "Quero três cappuccinos com leite de aveia." → estoque insuficiente; nada é registrado e o estoque não muda.
 
 ## Testes
 
@@ -163,27 +198,35 @@ python -m scripts.avaliar         # avaliação com perguntas de gabarito
 pytest
 ```
 
-Os testes são **offline** (não chamam LLM). Conferem, entre outros pontos: estoque só muda após a confirmação, o cálculo do valor total, quantidades inválidas, cancelamento e perguntas fora do escopo.
+Os testes são **offline** (não chamam LLM nem a internet). Cobrem: produto existente e inexistente, estoque suficiente e insuficiente, quantidade inválida ou ausente, cancelamento antes da confirmação, pedido confirmado, pergunta fora do escopo, servidor MCP indisponível, falha de ferramenta, **estoque só muda após a confirmação** e valores iguais aos calculados em Python.
 
 ## Regras do projeto
 
-- **Sem custos:** apenas modelos gratuitos do OpenRouter (`LLM_MODEL=openrouter/free`; embeddings terminados em `:free`). Limite de cerca de 50 requisições por dia: use os testes offline para economizar.
+- **Padronização:** todos seguem o [guia de padronização](docs/padronizacao.md) (nomes, idioma, estilo, Git, testes).
+- **Contratos primeiro:** antes de codar, a equipe fecha os formatos em [`docs/contratos.md`](docs/contratos.md). Mudar contrato exige aprovação de todos.
+- **Dono único por arquivo:** só o dono edita; os outros pedem a mudança. A lista está na [divisão de responsabilidades](docs/divisao-de-responsabilidades.md).
+- **Sem custos:** apenas modelos gratuitos do OpenRouter (`LLM_MODEL=openrouter/free`; embeddings terminados em `:free`). Limite de cerca de 50 requisições por dia: use testes offline.
 - **Segredos:** o `.env` nunca entra no Git. Só o `.env.example` é versionado, sem valores reais.
-- **Contratos primeiro:** antes de codar, a equipe define o formato de entrada e saída de cada componente (`docs/contratos.md`).
-- **Branches:** uma branch por funcionalidade e Pull Request revisado por outra pessoa antes do merge.
 - **LLM decide, Python calcula:** valores, estoque e validações nunca ficam a cargo do LLM.
+- **Git:** uma branch por funcionalidade (`feat/pedidos-estruturar`) e Pull Request aprovado por outra pessoa. Nunca commitar direto na `main` (depois da configuração inicial).
 
 ## Equipe
 
-| Integrante | Responsabilidade |
-|---|---|
-| Pessoa 1 | Arquitetura, supervisor, estado compartilhado e roteamento |
-| Pessoa 2 | Agente de Atendimento: prompt, cardápio e recomendações |
-| Pessoa 3 | Agente de Pedidos: Pydantic, cálculo e registro |
-| Pessoa 4 | Ferramentas de estoque, dados, integração e testes |
+| Integrante | Área | Etapas |
+|---|---|---|
+| Pessoa 1 | Arquitetura e Supervisor | 1.1 a 1.9: contratos, `State`, `classify`, roteamento, confirmação humana, grafo, `main.py`, tratamento de falhas |
+| Pessoa 2 | Agente de Atendimento, cardápio e testes integrados | 2.1 a 2.10: `cardapio.json`, filtros, prompt, recomendação, testes dos cenários, roteiro da demo |
+| Pessoa 3 | Agente de Pedidos | 3.1 a 3.8: modelos Pydantic, cálculo de valor, extração do pedido, disponibilidade, resumo, finalização |
+| Pessoa 4 | Servidor MCP, dados e cliente | 4.1 a 4.9: dados e receitas, **stub do cliente**, ferramentas, servidor HTTP, cliente real, teste sem LLM |
 
-*(Substituir pelos nomes reais.)*
+*(Substituir "Pessoa N" pelos nomes reais.)* O detalhe de cada etapa está em [`docs/divisao-de-responsabilidades.md`](docs/divisao-de-responsabilidades.md).
 
 ## Documentação
 
-- [Passo a passo do projeto](docs/passo-a-passo.md)
+| Documento | Para quê |
+|---|---|
+| [CafeterIA.md](docs/CafeterIA.md) | Visão geral, arquitetura e escopo do MVP |
+| [passo-a-passo.md](docs/passo-a-passo.md) | Guia de implementação em fases, com marcos |
+| [divisao-de-responsabilidades.md](docs/divisao-de-responsabilidades.md) | Etapas por pessoa, donos de arquivos, dependências |
+| [padronizacao.md](docs/padronizacao.md) | Idioma, nomes, estilo, erros, Git e testes |
+| [contratos.md](docs/contratos.md) | Estado, modelos e ferramentas: entradas e saídas |
