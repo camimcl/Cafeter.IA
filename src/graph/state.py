@@ -1,4 +1,5 @@
 from typing import TypedDict
+from src.schemas.pedido import Pedido
 
 class State(TypedDict, total=False):
     mensagem: str
