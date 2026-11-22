@@ -58,7 +58,7 @@ Pedido:     itens (lista de ItemPedido), total_centavos (preenchido só pelo Pyt
 
 ### 2.4 Campos do estado compartilhado (dono: Pessoa 1)
 
-`mensagem`, `intent`, `resposta`, `quer_pedir`, `filtros_cardapio`, `cardapio`, `pedido`, `campos_faltantes`, `estoque_ok`, `faltas`, `total_centavos`, `resumo`, `idempotency_key`, `confirmado`, `pedido_id`.
+`mensagem`, `intencao`, `resposta`, `quer_pedir`, `filtros_cardapio`, `cardapio`, `pedido`, `campos_faltantes`, `estoque_ok`, `faltas`, `total_centavos`, `resumo`, `idempotency_key`, `confirmado`, `pedido_id`.
 
 ### 2.5 Confirmação humana (donas: Pessoa 1 e Pessoa 3)
 
