@@ -326,7 +326,7 @@ No CafeterIA:
 Para manter o projeto viável:
 
 - Utilizar apenas um servidor MCP;
-- Utilizar transporte local, como STDIO;
+- Utilizar transporte HTTP local, com o servidor MCP rodando em outro terminal (por exemplo, em `http://127.0.0.1:8000/mcp`, endereço lido da variável `MCP_URL`);
 - Implementar somente três ferramentas;
 - Armazenar os dados em JSON;
 - Não utilizar autenticação ou infraestrutura externa no protótipo;
