@@ -1,24 +1,21 @@
 # Passo a passo do Cafeter.IA
 
-Este documento guia a equipe da primeira linha de código até a demonstração. Ele está dividido em **fases**. As fases 0 a 6 formam o **MVP**. As fases 7 a 9 completam o projeto com RAG, MCP e observabilidade, reforçando todos os assuntos do bootcamp.
+Este guia leva a equipe da primeira reunião até a demonstração. Ele mostra **a ordem** do trabalho. Os detalhes de cada etapa de cada pessoa estão em [`divisao-de-responsabilidades.md`](divisao-de-responsabilidades.md), e as regras de escrita em [`padronizacao.md`](padronizacao.md).
 
-**Regra de ouro:** o LLM interpreta e conversa; **Python calcula e valida**; o LangGraph decide o caminho.
+**Regra de ouro:** o LLM interpreta e conversa; **o Python calcula e valida**; as ferramentas executam; o MCP padroniza a comunicação; o LangGraph decide o caminho.
 
-## Mapa das fases
+## Visão em uma tela
 
-| Fase | O que entrega | Responsável sugerido | Conceito reforçado |
+| Fase | Marco | O que entrega | Quem |
 |---|---|---|---|
-| 0 | Ambiente pronto | Todos | Configuração, segurança do `.env` |
-| 1 | Contratos e dados | Todos (Pessoa 4 lidera os dados) | Pydantic, contratos entre componentes |
-| 2 | Ferramentas de estoque e valor | Pessoa 4 e Pessoa 3 | Tools determinísticas, testes |
-| 3 | Agente de Atendimento | Pessoa 2 | Prompt, tool calling |
-| 4 | Agente de Pedidos | Pessoa 3 | Saída estruturada |
-| 5 | Supervisor e grafo com confirmação | Pessoa 1 | Roteamento condicional, human-in-the-loop |
-| 6 | Integração e testes do MVP | Todos | Cenários de demonstração |
-| 7 | RAG e análise de estoque | Pessoas 2 e 4 | RAG, filtro, grade, extração, reducer |
-| 8 | Comprador, revisor e MCP | Pessoas 1 e 3 | Multiagentes, MCP, versão e idempotência |
-| 9 | Observabilidade e avaliação | Pessoa 4 | Langfuse, `avaliar.py` |
-| 10 | Apresentação | Todos | Explicar o que foi construído |
+| 0 | | Ambiente pronto | Todos |
+| 1 | **Marco 0** | Contratos fechados | Todos (Pessoa 1 conduz) |
+| 2 | **Marco 1** | Stub do cliente MCP, dados e esqueleto do grafo | Pessoa 4 e Pessoa 1 |
+| 3 | **Marco 2** | Componentes prontos, cada um contra o stub | Todos, em paralelo |
+| 4 | **Marco 3** | Integração: servidor MCP real no lugar do stub | Pessoa 1 lidera |
+| 5 | **Marco 4** | Testes dos cenários e das falhas | Pessoa 2 lidera |
+| 6 | **Marco 5** | Ensaio e demonstração | Todos |
+| 7 | | Depois do MVP (opcional): RAG, comprador e revisor, idempotência, Langfuse | A combinar |
 
 ---
 
@@ -27,279 +24,208 @@ Este documento guia a equipe da primeira linha de código até a demonstração.
 1. Clone o repositório e crie o ambiente virtual (comandos no README).
 2. Instale com `pip install -r requirements-dev.txt`.
 3. Copie `.env.example` para `.env` e preencha a chave do OpenRouter.
-4. Confira os modelos gratuitos:
-   - `LLM_MODEL=openrouter/free`
-   - `EMBEDDINGS_MODEL` terminado em `:free`
+4. Use só modelos gratuitos: `LLM_MODEL=openrouter/free` e `EMBEDDINGS_MODEL` terminado em `:free`.
 5. Confirme que o `.env` está no `.gitignore` e **não aparece** em `git status`.
-6. Combine o fluxo de Git: uma branch por funcionalidade (`feat/agente-pedidos`, `feat/estoque`...) e Pull Request revisado por outra pessoa.
+6. Leia [`padronizacao.md`](padronizacao.md) (idioma, nomes, Git). Todos seguem o mesmo guia.
+7. Combinem o fluxo de Git: uma branch por funcionalidade (`feat/pedidos-estruturar`) e Pull Request aprovado por outra pessoa.
 
-**Pronto quando:** todos conseguem rodar `pytest` (mesmo sem testes ainda) e nenhum segredo está no repositório.
-
----
-
-## Fase 1: Contratos e dados
-
-Antes de qualquer agente, defina **o que cada parte recebe e devolve**. Registre em `docs/contratos.md`.
-
-### 1.1 Modelos Pydantic (`src/schemas/`)
-
-Defina, no mínimo:
-
-- `ItemPedido`: `produto`, `quantidade` (inteiro maior que zero), `personalizacoes` (lista, ex.: `["leite de aveia"]`).
-- `Pedido`: lista de `ItemPedido`, `total` (preenchido só pelo Python), `confirmado` (booleano, começa `False`).
-- `Intencao`: `Literal` com as intenções do supervisor (no MVP: `atendimento`, `pedido`, `fora_escopo`).
-
-### 1.2 Dados simulados (`dados/`)
-
-Crie arquivos JSON pequenos:
-
-- `cardapio.json`: produtos com id, nome, categoria, preço, temperatura (quente ou gelado), alérgenos, ingredientes por unidade e se contém lactose.
-- `estoque.json`: ingrediente, quantidade, unidade e quantidade mínima.
-- `pedidos.json`: começa vazio (`[]`); é onde o registro do pedido grava.
-
-Inclua propositalmente: um item sem lactose, um item gelado e doce, e **um ingrediente com estoque baixo** (o cenário 3 depende dele).
-
-### 1.3 Estado compartilhado do grafo
-
-Liste em `docs/contratos.md` os campos do `State` (mensagem do cliente, intenção, pedido estruturado, resultado da verificação de estoque, resposta final). Cada nó devolve **só o que mudou**.
-
-**Pronto quando:** os quatro integrantes concordam, por escrito, com os campos e os formatos.
+**Pronto quando:** todos rodam `pytest` sem erro e nenhum segredo está no repositório.
 
 ---
 
-## Fase 2: Ferramentas de estoque e valor (Python puro)
+## Fase 1: Contratos (Marco 0)
 
-Em `src/graph/tools.py` (ou `src/utils/`), crie funções **determinísticas**, sem LLM:
+Primeira reunião da equipe, de 30 a 40 minutos. Use o roteiro de perguntas da seção 8 da [divisão de responsabilidades](divisao-de-responsabilidades.md).
 
-| Ferramenta | O que faz |
+O que precisa ficar escrito em [`contratos.md`](contratos.md) antes de qualquer código:
+
+1. **Campos do estado compartilhado** (`State`).
+2. **Modelos Pydantic:** `ItemPedido`, `Pedido`, `FiltroCardapio`.
+3. **Assinatura do cliente MCP:** `chamar_ferramenta(nome, argumentos) -> dict`, sempre devolvendo `{"ok": ...}` e nunca levantando exceção.
+4. **Contrato das três ferramentas MCP** (entradas e saídas): `consultar_cardapio`, `verificar_estoque`, `registrar_pedido`.
+5. **Formato dos dados em JSON:** cardápio, estoque, receitas e pedidos.
+6. **Códigos de erro:** os da [padronização](padronizacao.md#8-erros-e-respostas-das-ferramentas).
+7. **Decisões:** dinheiro em centavos, servidor MCP em HTTP (porta 8000), nome da variável do stub (`USAR_MCP_STUB`).
+
+**Pronto quando:** os quatro aprovaram o contrato em um Pull Request.
+
+---
+
+## Fase 2: Stubs, dados e esqueleto (Marco 1)
+
+Objetivo: **ninguém ficar esperando ninguém.**
+
+| Quem | O que | Etapa |
+|---|---|---|
+| Pessoa 4 | **Stub do cliente MCP** (a mesma função `chamar_ferramenta`, com respostas fixas) | 4.2 |
+| Pessoa 4 | `estoque.json` e `receitas.json`, já preparados para os cenários 1 e 3 | 4.1 |
+| Pessoa 2 | `cardapio.json` com pelo menos 8 produtos | 2.1 |
+| Pessoa 1 | `State`, `llm_adapter`, esqueleto do `builder.py` com nós falsos | 1.1, 1.2, 1.7 |
+
+O stub é a peça que destrava o resto. A Pessoa 4 entrega ele **primeiro**.
+
+**Pronto quando:** a Pessoa 2 e a Pessoa 3 conseguem chamar `chamar_ferramenta` e receber respostas no formato do contrato.
+
+---
+
+## Fase 3: Componentes em paralelo (Marco 2)
+
+Cada pessoa trabalha **só nos seus arquivos**, contra o stub. A ordem e os critérios de "pronto" estão na divisão de responsabilidades.
+
+### Pessoa 1: supervisor e fluxo
+- `classify` com saída estruturada (`atendimento`, `pedido`, `fora_escopo`) e `route_by_intent`.
+- Nós `recusar` e `cancelar_pedido`.
+- **Confirmação humana:** nó `confirmar_pedido` que pausa o grafo e retoma com sim ou não (`interrupt` e checkpointer).
+- `main.py` com a conversa no terminal.
+- Tratamento de falhas: servidor fora do ar, erro de ferramenta.
+
+### Pessoa 2: atendimento e cardápio
+- Prompt do atendente: só recomenda o que veio da ferramenta.
+- Interpretar preferências ("gelada, doce, sem lactose") em um `FiltroCardapio` por saída estruturada.
+- Chamar `consultar_cardapio` e escrever a recomendação.
+- Sinalizar `quer_pedir` quando o cliente decide pedir.
+
+### Pessoa 3: pedidos
+- Modelos `ItemPedido` e `Pedido` com validações.
+- Função pura `calcular_total` (centavos, sem `float`).
+- Nó `estruturar_pedido` (saída estruturada, sem inventar dados) e `pedir_esclarecimento` (falta quantidade, produto inexistente, quantidade inválida).
+- Nós `verificar_disponibilidade`, `calcular_valor`, `montar_resumo` e `finalizar_pedido` (só roda depois do "sim").
+
+### Pessoa 4: servidor MCP e dados
+- Repositório de dados (gravação segura em JSON).
+- Ferramentas `consultar_cardapio`, `verificar_estoque` (resolve receita e personalização, **não altera nada**) e `registrar_pedido` (confere o estoque de novo, grava tudo ou nada).
+- Servidor em HTTP e cliente real.
+- `scripts/testar_mcp.py`, que testa as ferramentas sem LLM.
+
+**Pronto quando:** cada pessoa tem seus testes passando (`pytest`, sem chamar o LLM) e seus nós funcionam com o stub.
+
+---
+
+## Fase 4: Integração (Marco 3)
+
+Aqui o stub dá lugar ao servidor real.
+
+1. **Teste o servidor sozinho**, sem o grafo:
+   ```bash
+   # Terminal 1
+   python mcp_server/server.py
+   # Terminal 2
+   python -m scripts.testar_mcp
+   ```
+   Cubra: sucesso, produto inexistente, quantidade inválida, estoque insuficiente.
+2. **Troque o stub pelo cliente real** (`USAR_MCP_STUB` desligado). Os nós das Pessoas 1, 2 e 3 **não devem mudar**: é o teste de que o contrato foi respeitado.
+3. **Ligue os nós reais no `builder.py`**, um caminho por vez:
+   - caminho do atendimento (cenário 2);
+   - caminho do pedido (cenário 1);
+   - estoque insuficiente (cenário 3);
+   - fora do escopo.
+4. **Confirme a pausa humana:** o "não" nunca chega ao `registrar_pedido`.
+5. Rode o cenário 1 inteiro pelo terminal (`python -m src.app.main`), com o servidor em outro terminal.
+
+**Problemas comuns:**
+- Esquecer de subir o servidor MCP → a aplicação deve avisar que o serviço não está no ar.
+- Estoque do JSON alterado por um teste anterior → o servidor precisa voltar aos dados originais para a demo.
+- Contrato mudou sem aviso → volte ao `contratos.md` e corrijam juntos.
+
+**Plano alternativo:** se o MCP travar a entrega, a troca é feita **em um único lugar** (`mcp_client.py`), chamando as funções diretamente pelo Python. Os nós não mudam, porque todos usam só `chamar_ferramenta`.
+
+**Pronto quando:** os três cenários rodam de ponta a ponta com o servidor real.
+
+---
+
+## Fase 5: Testes e validação (Marco 4)
+
+A Pessoa 2 lidera, com todos corrigindo o que aparecer.
+
+| Caso | O que verificar |
 |---|---|
-| `consultar_cardapio(filtros)` | Devolve produtos que atendem a filtros (gelado, sem lactose, categoria) |
-| `verificar_estoque(pedido)` | Soma os ingredientes necessários e compara com o estoque |
-| `calcular_valor(pedido)` | Calcula o total pelas regras de preço |
-| `registrar_pedido(pedido)` | Grava em `pedidos.json` (só após confirmação) |
-| `atualizar_estoque(pedido)` | Baixa os ingredientes (só após confirmação) |
-| `estoque_baixo()` | Lista ingredientes abaixo do mínimo |
+| Produto existente | Pedido estruturado corretamente |
+| Produto inexistente | Pergunta de esclarecimento, sem seguir para o estoque |
+| Estoque suficiente | Segue para valor e resumo |
+| Estoque insuficiente | Informa o que falta; **nada** é registrado |
+| Quantidade inválida ou ausente | Pede esclarecimento |
+| Cancelamento antes da confirmação | Encerra sem registrar e sem alterar o estoque |
+| Pedido confirmado | Registra uma vez e baixa o estoque |
+| Pergunta fora do escopo | Recusa educada |
+| Servidor MCP indisponível | Mensagem clara, nada registrado |
+| Falha de ferramenta | Erro tratado, sem dizer ao cliente que deu certo |
 
-**Cuidados:**
+Confirme também que:
+- o **estoque só muda depois do "sim"**;
+- os valores batem com o cálculo em Python (conferido à mão);
+- nenhum teste automatizado chama o LLM.
 
-- `verificar_estoque` **não altera nada**. Só `atualizar_estoque` altera.
-- Trate produto inexistente e quantidade inválida com erro claro, não com exceção solta.
-- Escreva os testes em `tests/` **agora**: estoque suficiente, insuficiente, produto inexistente, quantidade zero ou negativa, valor total correto.
+Use poucas chamadas reais ao LLM nas rodadas manuais (limite diário do plano gratuito).
 
-**Pronto quando:** os testes das ferramentas passam sem nenhuma chamada ao LLM.
-
----
-
-## Fase 3: Agente de Atendimento
-
-Responsável pelas dúvidas e recomendações.
-
-1. Crie o prompt em `src/graph/prompts/` (papel: atendente simpático que só fala de cafeteria).
-2. Dê ao agente a ferramenta `consultar_cardapio` (tool calling).
-3. Regra no prompt: **só recomendar o que existe no cardápio**, respeitando restrições (sem lactose, gelado, doce).
-4. O nó recebe a mensagem e devolve a resposta no estado.
-
-Teste com: "Quero uma bebida gelada, doce e sem lactose. O que vocês recomendam?"
-
-**Pronto quando:** as recomendações vêm do cardápio e respeitam as restrições pedidas.
+**Pronto quando:** cada caso da tabela tem um teste e `pytest` passa.
 
 ---
 
-## Fase 4: Agente de Pedidos
+## Fase 6: Apresentação (Marco 5)
 
-Responsável por transformar texto em pedido.
-
-1. Use **saída estruturada** com o modelo `Pedido` do Pydantic (`with_structured_output`).
-2. Prompt: copiar produtos, quantidades e personalizações **sem inventar**. Se faltar quantidade, marcar como não informada para o sistema perguntar de volta.
-3. Depois da extração, o **Python** chama `verificar_estoque` e `calcular_valor`. O LLM não calcula nada.
-4. Monte o resumo do pedido (itens, personalizações, total) para a confirmação.
-
-Teste com: "Quero dois cappuccinos com leite de aveia e um pão de queijo."
-
-**Pronto quando:** o pedido sai estruturado e o total vem do Python, igual ao valor calculado à mão.
-
----
-
-## Fase 5: Supervisor e grafo com confirmação humana
-
-1. **Nó `classify`:** LLM com saída estruturada devolve a intenção (`atendimento`, `pedido`, `fora_escopo`).
-2. **Roteamento condicional:** `route_by_intent` leva ao nó certo.
-3. **Caminho do pedido:**
-   `estruturar → verificar_estoque → (insuficiente: informar indisponibilidade) | (suficiente: calcular_valor → resumo → confirmação)`.
-4. **Human-in-the-loop:** pause o grafo no resumo e retome com a resposta do cliente (checkpointer e `interrupt`, como na Semana 1).
-   - Cliente confirmou → `registrar_pedido` e `atualizar_estoque`.
-   - Cliente não confirmou → encerra **sem registrar e sem mexer no estoque**.
-5. **Nó `refuse`:** resposta educada para assuntos fora da cafeteria.
-6. Monte o `builder.py` e ligue tudo.
-
-**Pronto quando:** os três cenários do README funcionam de ponta a ponta e o estoque só muda após o "sim".
-
----
-
-## Fase 6: Integração e testes do MVP
-
-Cubra, com testes automatizados (as funções de roteamento e as ferramentas são testáveis sem LLM):
-
-- produto existente e produto inexistente;
-- estoque suficiente e insuficiente;
-- quantidade inválida ou não informada;
-- cancelamento antes da confirmação;
-- pedido confirmado;
-- pergunta fora do escopo;
-- **estoque só atualiza após a confirmação**;
-- valores calculados conferem com as regras em Python.
-
-Faça uma rodada manual com cada cenário de demonstração. Use poucas chamadas reais ao LLM (limite diário do plano gratuito).
-
-**Fim do MVP.** A partir daqui, a versão completa.
-
----
-
-## Fase 7: RAG e análise de estoque
-
-### 7.1 Documentos
-
-Em `dados/`, crie:
-
-- `manual_cafeteria.txt`: seções com `##` (receitas e gramas por dose, validade de leite e grãos, alérgenos, política de desconto, estoque mínimo, **fator de dia de pico**).
-- `relatorio_estoque.txt`: uma seção `##` por item (lote de grãos, data da torra, quantidade, mínimo, consumo diário).
-- `avaliacao.json`: cerca de 9 perguntas com os termos esperados na resposta.
-
-### 7.2 Busca (`src/utils/vector_store.py`)
-
-- Indexe os dois documentos, dividindo por seção, e coloque `doc` no metadado.
-- Crie `buscar(pergunta, doc, k)` com **filtro por documento**.
-- Para perguntas que comparam todos os itens, use `k` grande para trazer **todas** as seções do relatório.
-
-### 7.3 Novos nós
-
-- `classify` ganha as intenções `regra` e `analise`.
-- Caminho `regra`: `retrieve_regras → grade → generate | nao_encontrado`. Se o manual não tiver a resposta, devolve "Não encontrado no manual da cafeteria" (não inventa).
-- Caminho `analise`: `retrieve_estoque → retrieve_regras_calculo → extract_estoque → prepare → analyze ⇄ tools → format`.
-- `extract_estoque`: saída estruturada transformando o relatório em lista de itens, copiando os valores.
-- Campo `fontes` no estado com **reducer** (`operator.add`) para acumular fontes de vários nós.
-
-### 7.4 Ferramentas da análise
-
-| Ferramenta | Papel |
-|---|---|
-| `estoque_ok(quantidade, minimo)` | O item está acima do mínimo? |
-| `consumo_efetivo(consumo_base, dia_de_pico, fator_pico)` | Consumo real; o **fator de pico vem do manual**, não do código |
-| `dias_de_estoque(quantidade, consumo)` | Em quantos dias o item acaba |
-
-O modelo precisa ler o fator no manual e passá-lo à ferramenta. Se o manual mudar, o comportamento muda sem alterar o código.
-
-Teste: "Qual item acaba primeiro?" e "Algum item está abaixo do mínimo?".
-
-**Pronto quando:** as três intenções seguem caminhos diferentes, uma pergunta sem base termina em "não encontrado" e as ferramentas (não o LLM) fazem as contas.
-
----
-
-## Fase 8: Comprador, revisor e MCP
-
-### 8.1 Servidor MCP (`mcp_server/server.py`)
-
-Processo **separado**, em outro terminal. Duas ferramentas:
-
-- `get_shop_state()`: itens de estoque com `state_version`.
-- `create_restock_order(item_id, qty, expected_state_version, idempotency_key)`: valida, confere a versão, aplica e incrementa a versão. É **idempotente**.
-
-Regras do servidor:
-
-| Regra | Efeito |
-|---|---|
-| Chave repetida | Devolve a resposta original, com `duplicate: true`, sem alterar de novo |
-| Versão velha | Erro `STATE_VERSION_CONFLICT` |
-| Item inexistente ou quantidade fora do passo | Erro `INVALID_SCHEMA` |
-| Só respostas de sucesso são memorizadas | Erros permitem nova tentativa com dados corretos |
-
-Chave sugerida: `cafe:<item>:RESTOCK:v<versao>`.
-
-### 8.2 Teste direto das ferramentas (`scripts/testar_mcp.py`, sem LLM)
-
-Nesta ordem, com o servidor recém-iniciado:
-
-1. reposição válida → `committed`, versão sobe;
-2. mesma chamada de novo → `duplicate: true`, versão não muda;
-3. outra chave com versão velha → `STATE_VERSION_CONFLICT`;
-4. quantidade inválida → `INVALID_SCHEMA`.
-
-Reinicie o servidor antes de rodar o grafo.
-
-### 8.3 Grafo da ação
-
-```text
-ler_estado → comprador → revisor → validar → aprovacao_gerente → executar → (reler | confirmar)
-                           └ rejeitado 2x → escalar
-```
-
-- **comprador** (LLM): propõe item e quantidade, com justificativa.
-- **revisor** (LLM, independente): aprova ou rejeita com motivo. O laço volta ao comprador com no máximo **2 rodadas**; depois, `escalar`.
-- **validar** (código): confere múltiplos da embalagem, orçamento e item válido, **mesmo com o revisor tendo aprovado**.
-- **aprovacao_gerente** (human-in-the-loop): obrigatória para compra acima de um valor ou descarte de lote.
-- **executar** (MCP, assíncrono): envia `expected_state_version` e `idempotency_key`.
-- **reler:** em `STATE_VERSION_CONFLICT`, relê o estado e decide de novo (no máximo 2 tentativas). Não repete a mesma chamada às cegas.
-- Nós que chamam o MCP são `async def`; use `ainvoke` e `asyncio.run`.
-
-### 8.4 Experimento de conflito
-
-Com `SIMULAR_CONFLITO=1`, na primeira tentativa envie `state_version - 1`. O log deve mostrar a primeira tentativa rejeitada e a segunda concluída.
-
-### 8.5 Defesa em camadas
-
-| Camada | Garante |
-|---|---|
-| Revisor (LLM) | Julga a proposta |
-| `validar` (código) | Regras de negócio, independente do LLM |
-| Servidor MCP | Versão e idempotência, independente do cliente |
-
-**Pronto quando:** o estado do servidor só muda com revisor aprovando, validação passando e gerente confirmando, e repetir o comando não altera o estado de novo.
-
----
-
-## Fase 9: Observabilidade e avaliação
-
-1. Configure o Langfuse no `.env` (opcional). Sem ele, use `graph.stream(..., stream_mode="updates")` como trace local.
-2. Rode um pedido e uma pergunta de regra e compare: qual nó demorou mais, quantas chamadas ao LLM, quantos tokens.
-3. Crie `scripts/avaliar.py`: percorre `dados/avaliacao.json`, roda o grafo e confere se a resposta **contém** os termos esperados. Imprime a taxa de acerto.
-4. Compare o custo em tokens entre os caminhos (`regra` costuma ser mais barato que `analise` e `acao`).
-
-**Pronto quando:** `avaliar.py` roda todas as perguntas e reporta a taxa de acerto.
-
----
-
-## Fase 10: Apresentação
-
-Roteiro sugerido (cerca de 15 minutos):
+Roteiro sugerido (cerca de 15 minutos), montado pela Pessoa 2 e ensaiado por todos:
 
 1. **Problema:** erro de pedido, item indisponível, estoque sem controle.
-2. **Princípio:** a IA interpreta, o Python calcula, o LangGraph coordena.
-3. **Demo 1:** pedido com confirmação humana.
-4. **Demo 2:** recomendação (atendimento).
-5. **Demo 3:** item indisponível (nada é registrado).
-6. **Demo 4 (completa):** pergunta de regra com "não encontrado".
-7. **Demo 5 (completa):** reposição com revisor, aprovação do gerente, conflito de versão e idempotência.
-8. **Trace:** mostrar o caminho dos nós e o custo em tokens.
-9. **Aprendizados e próximos passos.**
+2. **Princípio:** a IA interpreta, o Python calcula, o MCP padroniza, o LangGraph coordena.
+3. **Arquitetura:** o fluxo principal do README.
+4. **Demo 1:** pedido com confirmação humana (cenário 1).
+5. **Demo 2:** recomendação (cenário 2).
+6. **Demo 3:** item indisponível; nada é registrado (cenário 3).
+7. **Demo 4:** servidor MCP desligado; o sistema avisa e não registra nada.
+8. **Aprendizados e próximos passos.**
 
-### Perguntas que os colegas podem fazer
+Antes da demo: reiniciar o servidor para os dados voltarem ao estado original.
 
-- Por que o estoque é uma ferramenta Python e não um agente?
-- Por que validar em código se o revisor já aprovou?
+**Perguntas que os colegas podem fazer:**
+- Por que o estoque é consultado por MCP e não direto no Python?
+- Por que validar em código se o LLM já extraiu o pedido?
 - O que acontece se o cliente nunca confirmar?
-- Por que repetir um comando com a mesma chave é seguro?
-- Por que o fator de pico fica no manual e não no código?
+- Por que dinheiro em centavos?
+- O que muda se o servidor MCP cair?
 
 ---
 
-## Checklist final
+## Depois do MVP (opcional)
+
+Estes temas reforçam o que o bootcamp ensinou. Entram quando o MVP estiver estável, reaproveitando a divisão por pessoas.
+
+### RAG sobre o manual da cafeteria (sugestão: Pessoa 2)
+- Documento `dados/manual_cafeteria.txt`: receitas, validade, alérgenos, políticas, **fator de dia de pico**.
+- Busca com filtro por documento; `classify` ganha a intenção `regra`.
+- Caminho `regra`: `retrieve → grade → generate`, ou "Não encontrado" quando o manual não tem a resposta.
+- `fontes` no estado com reducer (`operator.add`).
+
+### Análise de estoque (sugestão: Pessoa 4 com Pessoa 2)
+- Documento `relatorio_estoque.txt`, extração estruturada em lista de itens.
+- Ferramentas `estoque_ok`, `consumo_efetivo` (o fator de pico vem do manual, não do código) e `dias_de_estoque`.
+- O modelo usa as ferramentas para qualquer conta; nunca calcula de cabeça.
+
+### Comprador e revisor (sugestão: Pessoas 1 e 3)
+- Agente **comprador** propõe reposição; **revisor** independente julga; laço de no máximo 2 rodadas, depois `escalar`.
+- Nó `validar` em código (múltiplos da embalagem, orçamento) mesmo com o revisor aprovando.
+- **Aprovação do gerente** (human-in-the-loop) para compra acima de um valor.
+
+### Servidor MCP mais seguro (sugestão: Pessoa 4)
+- Ferramenta `criar_pedido_reposicao` com `expected_state_version` e `idempotency_key`.
+- Erros `STATE_VERSION_CONFLICT` (relê o estado e decide de novo, sem repetir às cegas) e `INVALID_SCHEMA`.
+- Repetir o mesmo comando com a mesma chave não altera o estado de novo.
+- Experimento de conflito com `SIMULAR_CONFLITO=1`.
+
+### Observabilidade e avaliação (sugestão: Pessoa 4)
+- Langfuse (ou `graph.stream(..., stream_mode="updates")` como trace local).
+- `scripts/avaliar.py` percorre `dados/avaliacao.json` e reporta a taxa de acerto.
+- Comparar o custo em tokens entre os caminhos.
+
+---
+
+## Checklist final do MVP
 
 - [ ] `.env` fora do Git; `.env.example` sem valores reais
+- [ ] Servidor MCP em processo separado (HTTP)
 - [ ] Estoque só atualiza após a confirmação
-- [ ] Valores calculados em Python
-- [ ] Pergunta sem base termina em "não encontrado"
-- [ ] Servidor MCP em processo separado (versão completa)
-- [ ] Repetir o mesmo comando não altera o estado de novo
-- [ ] Testes passando (`pytest`)
-- [ ] `avaliar.py` reporta a taxa de acerto
-- [ ] README atualizado com os nomes da equipe
+- [ ] Valores calculados em Python, em centavos
+- [ ] Servidor indisponível e falhas de ferramenta tratados
+- [ ] Os três cenários funcionam de ponta a ponta
+- [ ] Testes passando (`pytest`), sem chamar o LLM
+- [ ] `ruff check .` sem problemas
+- [ ] Documentação e README atualizados com os nomes da equipe
