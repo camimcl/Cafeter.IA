@@ -77,7 +77,7 @@ FiltroCardapio (todos opcionais): temperatura, sem_lactose, doce, categoria, pre
 | Campo | Tipo | Quem escreve | Quem lê |
 |---|---|---|---|
 | `mensagem` | texto | entrada | supervisor, agentes |
-| `intent` | texto (`atendimento`, `pedido`, `fora_escopo`) | `classify` | roteamento |
+| `intencao` | texto (`atendimento`, `pedido`, `fora_escopo`) | `classify` | roteamento |
 | `resposta` | texto | agentes e nós finais | saída |
 | `quer_pedir` | booleano | atendimento | roteamento |
 | `filtros_cardapio` | dicionário | atendimento | atendimento |
@@ -85,7 +85,7 @@ FiltroCardapio (todos opcionais): temperatura, sem_lactose, doce, categoria, pre
 | `pedido` | dicionário validado por `Pedido` | `estruturar_pedido` | estoque, valor, resumo |
 | `campos_faltantes` | lista de textos | `estruturar_pedido` | `pedir_esclarecimento` |
 | `estoque_ok` | booleano | `verificar_disponibilidade` | roteamento |
-| `faltas` | lista | `verificar_disponibilidade` | resposta ao cliente |
+| `faltas` | lista de `{ingrediente, faltam, unidade}` | `verificar_disponibilidade` | resposta ao cliente |
 | `total_centavos` | inteiro | `calcular_valor` | resumo, registro |
 | `resumo` | texto | `montar_resumo` | `confirmar_pedido` |
 | `idempotency_key` | texto (`uuid4`) | `montar_resumo` | `finalizar_pedido` |
@@ -134,6 +134,7 @@ Os arquivos de exemplo estão em [`dados/`](../dados/), com o formato de cada ca
 | Sem lactose | Campo `sem_lactose` no produto e `torna_sem_lactose` na personalização (sem campo `vegano`) | 22/11/2026 |
 | Campos novos no cardápio | `descricao` e `torna_sem_lactose` | 22/11/2026 |
 | Idempotência | `idempotency_key` **obrigatória** em `registrar_pedido`, gerada no `montar_resumo` (seção 3.2) | 22/11/2026 |
+| Nome do campo da intenção no estado | `intencao` (em português, como o restante) | 22/11/2026 |
 | Porta do servidor | 8000 | |
 
 ## 10. Pontos a decidir
