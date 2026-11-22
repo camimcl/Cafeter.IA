@@ -1,0 +1,23 @@
+# Dependências de execução do Cafeter.IA
+# Versões sem fixação de propósito: depois da primeira instalação que funcionar,
+# rode "pip freeze" e fixe as versões para toda a equipe usar as mesmas.
+
+# Orquestração e LLM
+langchain
+langchain-core
+langchain-openai
+langchain-text-splitters
+langgraph
+
+# Estrutura e validação de dados
+pydantic
+
+# Configuração
+python-dotenv
+
+# Observabilidade (opcional)
+langfuse
+
+# MCP (versão completa: servidor e cliente)
+fastmcp
+langchain[mcp]

@@ -1,0 +1,6 @@
+-r requirements.txt
+
+# Testes e qualidade de código
+pytest
+pytest-asyncio
+ruff

@@ -1,0 +1,35 @@
+# --- Segredos (NUNCA versionar) ---
+.env
+.env.*
+!.env.example
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+build/
+dist/
+
+# --- Testes e qualidade ---
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# --- Notebooks ---
+.ipynb_checkpoints/
+
+# --- Dados gerados em execução (estado simulado, logs) ---
+dados/*.runtime.json
+*.log
+logs/
+
+# --- Editores e sistema ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
