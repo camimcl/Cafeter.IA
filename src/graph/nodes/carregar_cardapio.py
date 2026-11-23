@@ -7,7 +7,6 @@ para abastecer o estado com os produtos e preços vigentes.
 import logging
 
 from src.graph.state import State
-
 from src.utils.mcp_client import chamar_ferramenta
 
 logger = logging.getLogger(__name__)
