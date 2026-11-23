@@ -1,9 +1,9 @@
 """Agente de Atendimento: dúvidas e recomendações do cardápio (Pessoa 2).
 
-Etapa 2.4: interpretar as preferências do cliente como um FiltroCardapio.
+Etapas: 2.4 interpretar as preferências (FiltroCardapio); 2.5 consultar o cardápio no MCP.
 
-As dependências externas (LLM) podem ser passadas por parâmetro. Assim os testes usam um
-falso e nunca chamam o modelo de verdade.
+As dependências externas (LLM e cliente MCP) podem ser passadas por parâmetro. Assim os
+testes usam falsos e nunca chamam o modelo nem o servidor de verdade.
 """
 
 import logging
@@ -46,3 +46,41 @@ async def interpretar_preferencias(mensagem: str, llm=None) -> FiltroCardapio:
         logger.warning("Falha ao interpretar preferências; seguindo sem filtros.", exc_info=True)
 
     return FiltroCardapio()
+
+
+# --- etapa 2.5: consultar o cardápio pelo MCP ---
+
+MENSAGEM_SERVICO_FORA_DO_AR = (
+    "Nosso cardápio está fora do ar no momento. Tente de novo em alguns instantes, por favor."
+)
+MENSAGEM_ERRO_NA_CONSULTA = (
+    "Tive um problema para consultar o cardápio agora. Pode tentar de novo, por favor?"
+)
+
+
+def _obter_chamar_ferramenta():
+    """Busca o cliente MCP só na hora do uso (dono: Pessoa 4)."""
+    from src.utils.mcp_client import chamar_ferramenta
+
+    return chamar_ferramenta
+
+
+async def consultar_produtos(filtro: FiltroCardapio, chamar_ferramenta=None) -> dict:
+    """Consulta o cardápio no MCP com os filtros preenchidos. Devolve a resposta do contrato.
+
+    Campos vazios não são enviados: para o servidor, "ausente" já significa "não filtre".
+    """
+    if chamar_ferramenta is None:
+        chamar_ferramenta = _obter_chamar_ferramenta()
+
+    return await chamar_ferramenta("consultar_cardapio", filtro.model_dump(exclude_none=True))
+
+
+def mensagem_de_erro(resposta: dict) -> str:
+    """Traduz um erro do MCP em mensagem amigável; o detalhe técnico vai só para o log."""
+    erro = resposta.get("erro", {})
+    logger.warning("consultar_cardapio falhou: %s - %s", erro.get("codigo"), erro.get("mensagem"))
+
+    if erro.get("codigo") == "MCP_INDISPONIVEL":
+        return MENSAGEM_SERVICO_FORA_DO_AR
+    return MENSAGEM_ERRO_NA_CONSULTA
