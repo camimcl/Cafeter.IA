@@ -33,3 +33,6 @@ logs/
 .idea/
 .DS_Store
 Thumbs.db
+
+# --- Claude Code (arquivo pessoal, não vai para o Git) ---
+CLAUDE.local.md
