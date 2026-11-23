@@ -1,51 +1,85 @@
-# ☕ Cafeter.IA
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/logo/logo-horizontal-negativo.svg">
+    <img src="docs/brand/logo/logo-horizontal.svg" alt="Cafeter.IA" width="420">
+  </picture>
+</p>
 
-Assistente inteligente para **atendimento, pedidos e estoque** de cafeterias, construído com Python, LangChain, LangGraph e **MCP** (Model Context Protocol).
+<p align="center"><em>Uma cafeteria administrada por gatos (e por agentes de IA).</em></p>
 
-> **Princípio da solução:** a IA interpreta e orienta; as ferramentas executam; o Python valida e calcula; o MCP padroniza a comunicação; o LangGraph coordena o fluxo.
+<p align="center">
+  <img src="docs/brand/mascotes/senhor-mideis.png" alt="Senhor Mideis" width="64">
+  <img src="docs/brand/mascotes/inbonha.png" alt="Inbonha" width="64">
+  <img src="docs/brand/mascotes/simba.png" alt="Simba" width="64">
+  <img src="docs/brand/mascotes/ariela.png" alt="Ariela" width="64">
+</p>
 
----
+O Cafeter.IA atende clientes de uma cafeteria por texto: tira dúvidas sobre o cardápio, recomenda produtos e, quando o fluxo de pedido estiver pronto, monta o pedido, confere o estoque, calcula o valor e registra só depois da confirmação do cliente. É um sistema multiagente em Python com LangGraph, saída estruturada com Pydantic e ferramentas expostas por um servidor MCP.
+
+> **Princípio:** a IA interpreta e orienta; as ferramentas executam; o Python valida e calcula; o MCP padroniza a comunicação; o LangGraph coordena.
+
+Projeto em grupo do bootcamp de agentic AI da Deloitte.
 
 ## Sumário
 
-1. [Visão geral](#visão-geral)
-2. [Problema de negócio](#problema-de-negócio)
-3. [Como funciona](#como-funciona)
-4. [Escopo](#escopo)
-5. [Tecnologias](#tecnologias)
+1. [Os gatos-agentes](#os-gatos-agentes)
+2. [Como funciona](#como-funciona)
+3. [O que já funciona](#o-que-já-funciona)
+4. [Como rodar](#como-rodar)
+5. [Testes](#testes)
 6. [Estrutura do repositório](#estrutura-do-repositório)
-7. [Como rodar](#como-rodar)
-8. [Cenários de demonstração](#cenários-de-demonstração)
-9. [Testes](#testes)
-10. [Regras do projeto](#regras-do-projeto)
-11. [Equipe](#equipe)
-12. [Documentação](#documentação)
+7. [Regras do projeto](#regras-do-projeto)
+8. [Equipe](#equipe)
+9. [Documentação](#documentação)
 
----
+## Os gatos-agentes
 
-## Visão geral
+Cada agente do sistema tem um gato, uma cor e uma personalidade.
 
-O Cafeter.IA entende pedidos em linguagem natural, consulta o cardápio, recomenda produtos, estrutura pedidos, verifica a disponibilidade dos ingredientes, calcula o valor total e só registra o pedido depois da **confirmação humana**.
-
-As operações da cafeteria (consultar cardápio, verificar estoque, registrar pedido) ficam em um **servidor MCP** que roda em um processo separado e conversa com a aplicação por **HTTP local**. A aplicação descobre e chama essas ferramentas por um cliente MCP.
-
-## Problema de negócio
-
-Cafeterias lidam todo dia com atendimento, cardápio, pedidos e controle de insumos. Feitas manualmente e sem integração, essas tarefas geram erros nos pedidos, demora no atendimento e falhas no controle de estoque, como vender um item que já acabou.
+| | Gato | Agente | O que faz |
+|---|---|---|---|
+| <img src="docs/brand/mascotes/senhor-mideis.png" width="48"> | **Senhor Mideis** | Supervisor | Classifica a intenção da mensagem e encaminha. Recusa com educação o que foge da cafeteria |
+| <img src="docs/brand/mascotes/inbonha.png" width="48"> | **Inbonha** | Atendimento | Entende o que o cliente procura, consulta o cardápio e recomenda só o que existe |
+| <img src="docs/brand/mascotes/simba.png" width="48"> | **Simba** | Pedidos | Estrutura o pedido, calcula o valor e registra depois da confirmação (em construção) |
+| <img src="docs/brand/mascotes/ariela.png" width="48"> | **Ariela** | Estoque (MCP) | Guarda o cardápio, o estoque e os pedidos no servidor MCP |
 
 ## Como funciona
 
-Um **supervisor** (LangGraph) identifica a intenção da mensagem e a encaminha ao agente certo.
+### Fluxo atual
 
-| Componente | Responsabilidade |
-|---|---|
-| **Supervisor** | Classifica a intenção, roteia, controla o estado compartilhado e a confirmação humana |
-| **Agente de Atendimento** | Dúvidas sobre o cardápio e recomendações |
-| **Agente de Pedidos** | Carrega o cardápio, transforma o pedido em dado estruturado (Pydantic), verifica estoque, calcula o valor e finaliza o registro |
-| **Servidor MCP** | Expõe as ferramentas `consultar_cardapio`, `verificar_estoque` e `registrar_pedido` |
-| **Cliente MCP** | Conecta a aplicação ao servidor (função única `chamar_ferramenta`) |
+```mermaid
+flowchart TD
+    A["Cliente"] --> B["Senhor Mideis<br/>classify"]
+    B --> C{"Intenção"}
 
-### Fluxo principal
+    C -->|"dúvida ou recomendação"| D["Inbonha<br/>monta os filtros (LLM)"]
+    C -->|"fora do escopo"| Z["Senhor Mideis<br/>recusa educada"]
+    C -->|"pedido"| E["Simba<br/>fluxo de pedido"]
+
+    D --> D2["Ariela<br/>consultar_cardapio (MCP)"]
+    D2 --> D3["Inbonha<br/>escreve a recomendação (LLM)"]
+    D3 --> L["Resposta ao cliente"]
+    Z --> L
+    E --> L
+
+    D2 -.->|"servidor fora"| X["Aviso de serviço indisponível"]
+    X --> L
+
+    classDef mideis fill:#1F1410,stroke:#1F1410,color:#F3E9DC
+    classDef inbonha fill:#FBE4E1,stroke:#E08A83,color:#1F1410
+    classDef simba fill:#FBE6CC,stroke:#E9A55B,color:#1F1410
+    classDef ariela fill:#F2DCC6,stroke:#B8652E,color:#1F1410
+    class B,Z mideis
+    class D,D3 inbonha
+    class E simba
+    class D2 ariela
+```
+
+Cada cor é o gato responsável pelo passo. As setas tracejadas mostram o desvio quando o servidor MCP não responde.
+
+### Fluxo completo (com o pedido)
+
+O caminho inteiro planejado, incluindo o fluxo de pedido que ainda está em construção:
 
 ```mermaid
 flowchart TD
@@ -84,167 +118,156 @@ flowchart TD
     E9 -.->|"servidor fora"| X
     X --> L
 
-    classDef mcp fill:#E1F5EE,stroke:#0F6E56,color:#04342C,stroke-width:1px
-    classDef llm fill:#EEEDFE,stroke:#534AB7,color:#26215C,stroke-width:1px
+    classDef mcp fill:#F2DCC6,stroke:#B8652E,color:#1F1410,stroke-width:1px
+    classDef llm fill:#FBE4E1,stroke:#E08A83,color:#1F1410,stroke-width:1px
     class D2,E1,E4,E9 mcp
     class D1,D3,E2 llm
 ```
 
-Legenda: verde-água = passo que chama o MCP; roxo = passo do LLM; sem cor = código e fluxo. As setas tracejadas são os desvios quando o servidor MCP não responde.
+Legenda: caramelo = passo que chama o MCP (Ariela); rosa = passo do LLM; sem cor = código e fluxo. As setas tracejadas são os desvios quando o servidor MCP não responde.
 
 **Chave única:** o resumo do pedido gera uma `idempotency_key` (uma por pedido). Se o registro for repetido, o servidor devolve o pedido já gravado e não baixa o estoque de novo.
 
-### Defesa em camadas (o que fica com o LLM e o que fica com o Python)
+**Quem faz o quê:**
 
 | Quem | Faz |
 |---|---|
-| LLM | Interpreta a mensagem, extrai o pedido, escreve respostas |
-| Python | Valida quantidades, calcula o valor, decide se há estoque |
-| Servidor MCP | Confere o estoque de novo ao registrar, grava tudo ou nada e **não grava o mesmo pedido duas vezes** (`idempotency_key`) |
-| Cliente (humano) | Confirma antes de qualquer registro |
+| LLM | Classifica a intenção, transforma a frase do cliente em filtros e escreve as respostas |
+| Python | Valida os dados (Pydantic), formata valores em centavos e decide o caminho no grafo |
+| Servidor MCP | Lê o cardápio e o estoque e, no fluxo de pedido, grava o pedido uma única vez (`idempotency_key`) |
+| Cliente | Confirma antes de qualquer registro |
 
-## Escopo
+O LLM nunca calcula valores, nunca decide se há estoque e só recomenda produtos que vieram do cardápio.
 
-### MVP (obrigatório)
+## O que já funciona
 
-1. Atendimento por linguagem natural
-2. Consulta ao cardápio e recomendação de produtos
-3. Identificação e estruturação de pedidos (Pydantic)
-4. Consulta à disponibilidade de ingredientes
-5. Cálculo determinístico do valor do pedido
-6. Confirmação antes do registro (human-in-the-loop)
-7. Atualização do estoque após a confirmação
-8. Comunicação com as ferramentas via MCP (servidor local em HTTP)
+| Parte | Situação |
+|---|---|
+| Conversa de recomendação de ponta a ponta (`classify` → atendimento → resposta) | Pronta |
+| Recusa de assuntos fora da cafeteria | Pronta |
+| Ferramentas MCP `consultar_cardapio` e `verificar_estoque`, servidor HTTP, cliente e stub | Prontas |
+| Modelos `FiltroCardapio` e `Pedido`, cálculo e formatação de valores, nó `carregar_cardapio` | Prontos |
+| Fluxo de pedido: estruturar, conferir estoque, resumo, confirmação humana e `registrar_pedido` | Em construção. Hoje uma mensagem de pedido recebe "os pedidos ainda não estão disponíveis" |
+| Interface em Streamlit com a identidade visual | Desenhada, ainda não implementada |
 
-### Depois do MVP (opcional)
+## Como rodar
 
-RAG sobre um manual da cafeteria, análise de estoque com ferramentas, comprador com revisor, versão de estado no servidor MCP, Langfuse e avaliação automática. Detalhes no [passo a passo](docs/passo-a-passo.md#depois-do-mvp-opcional).
+Requer **Python 3.13**.
 
-### Fora do escopo
+```bash
+git clone https://github.com/camimcl/Cafeter.IA.git
+cd Cafeter.IA
 
-Pagamento real, interface gráfica elaborada, banco de dados em produção, integrações externas, previsão de demanda com ML, múltiplos servidores MCP e acompanhamento de entregas.
+python -m venv .venv
+source .venv/bin/activate          # Windows (PowerShell): .venv\Scripts\Activate.ps1
+pip install -r requirements-dev.txt
 
-## Tecnologias
+cp .env.example .env               # Windows: copy .env.example .env
+```
 
-Python · LangChain · LangGraph · Pydantic · Tool calling · FastMCP (servidor) e cliente MCP · JSON para dados simulados · pytest · ruff · Langfuse (opcional)
+No `.env`, preencha `OPENROUTER_API_KEY` com a sua chave do [OpenRouter](https://openrouter.ai/keys). Use só modelos gratuitos (`LLM_MODEL=openrouter/free`). O `.env` nunca vai para o Git.
+
+**Sem o servidor MCP** (mais simples): defina `USAR_MCP_STUB=1` no `.env` e rode
+
+```bash
+python -m src.app.main
+```
+
+**Com o servidor MCP**, em dois terminais (deixe `USAR_MCP_STUB` vazio ou `0`):
+
+```bash
+# Terminal 1: servidor em http://127.0.0.1:8000/mcp
+python mcp_server/servidor.py
+
+# Terminal 2: conversa
+python -m src.app.main
+```
+
+Experimente:
+
+- "Quero uma bebida gelada, doce e sem lactose": a Inbonha recomenda só itens do cardápio e diz qual personalização deixa o item sem lactose.
+- "Quero algo de até 5 reais": nenhum produto combina, e ela pergunta se você quer mudar algum critério.
+- "Qual a previsão do tempo?": o Senhor Mideis recusa com educação.
+
+Digite `sair` para encerrar. Cada mensagem usa de 1 a 3 requisições do limite diário do modelo gratuito.
+
+## Testes
+
+```bash
+python -m pytest -q
+ruff check .
+ruff format --check .
+```
+
+Os testes são **offline**: usam LLM e cliente MCP falsos e nunca chamam a internet. Eles cobrem o filtro do cardápio, os prompts, a interpretação de preferências, a consulta ao cardápio e o tratamento de falhas, a recomendação, o `classify`, o roteamento, a recusa, o grafo, o `main.py`, as ferramentas, o repositório de dados, o servidor, o cliente, o stub e o cálculo de valores.
+
+Para ver o LLM real interpretando algumas frases (gasta requisições):
+
+```bash
+python -m scripts.testar_interpretacao
+```
 
 ## Estrutura do repositório
 
 ```text
 Cafeter.IA/
-├── README.md
-├── .env.example              # modelo de variáveis (copie para .env)
-├── .gitignore
-├── requirements.txt
-├── requirements-dev.txt
-├── pyproject.toml
+├── CLAUDE.md                  # guia do projeto para o Claude Code
+├── .env.example               # modelo de variáveis (copie para .env)
+├── dados/                     # cardapio.json, estoque.json, receitas.json, pedidos.json
 ├── docs/
-│   ├── CafeterIA.md                       # visão geral e escopo do projeto
-│   ├── passo-a-passo.md                   # guia de implementação em fases
-│   ├── divisao-de-responsabilidades.md    # etapas de cada pessoa e contratos
-│   ├── padronizacao.md                    # nomes, estilo, Git, testes
-│   └── contratos.md                       # formatos de entrada e saída entre componentes
-├── dados/                    # cardapio.json, estoque.json, receitas.json, pedidos.json
-├── mcp_server/               # servidor MCP (processo separado) e acesso aos dados
-├── scripts/                  # testar_mcp.py (teste das ferramentas sem LLM)
+│   ├── brand/                 # identidade visual: logo, mascotes, cores
+│   ├── contratos.md           # formatos entre os componentes
+│   ├── padronizacao.md        # nomes, estilo, Git e testes
+│   ├── divisao-de-responsabilidades.md
+│   ├── passo-a-passo.md
+│   └── CafeterIA.md           # visão geral e escopo
+├── mcp_server/
+│   ├── servidor.py            # servidor MCP em HTTP
+│   ├── ferramentas.py         # consultar_cardapio, verificar_estoque
+│   └── repositorio.py         # leitura e gravação dos JSON
+├── scripts/
+│   └── testar_interpretacao.py
 ├── src/
-│   ├── app/                  # main.py (conversa no terminal)
+│   ├── app/main.py            # conversa no terminal
 │   ├── graph/
-│   │   ├── state.py          # estado compartilhado
-│   │   ├── builder.py        # montagem do grafo
-│   │   ├── routing.py        # funções de roteamento (route_*)
-│   │   ├── nodes/            # um arquivo por nó
-│   │   └── prompts/          # um arquivo por prompt
-│   ├── schemas/              # modelos Pydantic (Pedido, FiltroCardapio, ...)
-│   └── utils/                # llm_adapter, mcp_client, mcp_stub, valores
-└── tests/                    # testes offline (sem chamar LLM); e2e/ para os cenários
+│   │   ├── state.py           # estado compartilhado
+│   │   ├── builder.py         # montagem do grafo
+│   │   ├── routing.py         # route_by_intent
+│   │   ├── nodes/             # classify, atendimento, recusar, carregar_cardapio
+│   │   └── prompts/           # um arquivo por prompt
+│   ├── schemas/               # FiltroCardapio, Pedido
+│   └── utils/                 # llm_adapter, mcp_client, mcp_stub, valores
+└── tests/                     # testes offline
 ```
-
-Pastas ainda sem código têm um `.gitkeep`, que pode ser apagado quando houver arquivos reais.
-
-## Como rodar
-
-```bash
-# 1. Clonar
-git clone https://github.com/camimcl/Cafeter.IA.git
-cd Cafeter.IA
-
-# 2. Ambiente virtual (Python 3.13)
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-
-# 3. Dependências
-pip install -r requirements-dev.txt
-
-# 4. Configuração
-cp .env.example .env             # Windows: copy .env.example .env
-# edite o .env e preencha a chave. Nunca faça commit do .env.
-```
-
-A aplicação usa **dois terminais**, porque o servidor MCP é um processo separado:
-
-```bash
-# Terminal 1: servidor MCP (HTTP em http://127.0.0.1:8000/mcp)
-python mcp_server/server.py
-
-# Terminal 2: aplicação
-python -m src.app.main
-```
-
-Se o servidor não estiver no ar, a aplicação avisa que o serviço está indisponível e não registra nada.
-
-Para desenvolver sem o servidor, use o *stub* do cliente MCP (respostas fixas): defina `USAR_MCP_STUB=1` no `.env`.
-
-Para testar as ferramentas do servidor sem LLM:
-
-```bash
-python -m scripts.testar_mcp
-```
-
-> Os comandos ficam disponíveis conforme as fases do [passo a passo](docs/passo-a-passo.md) forem concluídas.
-
-## Cenários de demonstração
-
-1. **Pedido:** "Olá! Gostaria de pedir dois cappuccinos com leite de aveia e um pão de queijo." → estrutura, verifica estoque, calcula, mostra o resumo, pede confirmação e registra.
-2. **Recomendação:** "Quero uma bebida gelada, doce e sem lactose. O que vocês recomendam?" → consulta o cardápio e sugere opções compatíveis.
-3. **Indisponível:** "Quero três cappuccinos com leite de aveia." → estoque insuficiente; nada é registrado e o estoque não muda.
-4. **Confirmação repetida:** reenviar o registro do mesmo pedido → o servidor devolve o pedido já registrado (`duplicate: true`) e o estoque baixa uma só vez.
-
-## Testes
-
-```bash
-pytest
-```
-
-Os testes são **offline** (não chamam LLM nem a internet). Cobrem: produto existente e inexistente, estoque suficiente e insuficiente, quantidade inválida ou ausente, cancelamento antes da confirmação, pedido confirmado, pergunta fora do escopo, servidor MCP indisponível, falha de ferramenta, **estoque só muda após a confirmação**, **pedido repetido registrado uma só vez** e valores iguais aos calculados em Python.
 
 ## Regras do projeto
 
-- **Padronização:** todos seguem o [guia de padronização](docs/padronizacao.md) (nomes, idioma, estilo, Git, testes).
-- **Contratos primeiro:** antes de codar, a equipe fecha os formatos em [`docs/contratos.md`](docs/contratos.md). Mudar contrato exige aprovação de todos.
-- **Dono único por arquivo:** só o dono edita; os outros pedem a mudança. A lista está na [divisão de responsabilidades](docs/divisao-de-responsabilidades.md).
-- **Sem custos:** apenas modelos gratuitos do OpenRouter (`LLM_MODEL=openrouter/free`; embeddings terminados em `:free`). Limite de cerca de 50 requisições por dia: use testes offline.
-- **Segredos:** o `.env` nunca entra no Git. Só o `.env.example` é versionado, sem valores reais.
-- **LLM decide, Python calcula:** valores, estoque e validações nunca ficam a cargo do LLM.
-- **Git:** uma branch por funcionalidade (`feat/pedidos-estruturar`) e Pull Request aprovado por outra pessoa. Nunca commitar direto na `main` (depois da configuração inicial).
+- **Padronização:** todos seguem o [guia de padronização](docs/padronizacao.md).
+- **Contratos primeiro:** os formatos entre componentes estão em [`docs/contratos.md`](docs/contratos.md). Mudar um contrato exige aprovação de todos.
+- **Um dono por arquivo:** só o dono edita; os outros pedem a mudança ([divisão de responsabilidades](docs/divisao-de-responsabilidades.md)).
+- **Sem custos:** só modelos gratuitos do OpenRouter, com cerca de 50 requisições por dia. Por isso os testes são offline.
+- **Segredos:** o `.env` nunca entra no Git.
+- **Dinheiro em centavos inteiros**, nunca `float`.
+- **Git:** uma branch e um PR pequeno por etapa (`tipo/area-assunto`), com 1 aprovação de quem não é o autor.
 
 ## Equipe
 
-| Integrante | Área | Etapas |
-|---|---|---|
-| Pessoa 1 | Arquitetura e Supervisor | 1.1 a 1.9: contratos, `State`, `classify`, roteamento, confirmação humana, grafo, `main.py`, tratamento de falhas |
-| Pessoa 2 | Agente de Atendimento, cardápio e testes integrados | 2.1 a 2.10: `cardapio.json`, filtros, prompt, recomendação, testes dos cenários, roteiro da demo |
-| Pessoa 3 | Agente de Pedidos | 3.1 a 3.9: modelos Pydantic, cálculo de valor, **carregar cardápio**, extração do pedido, disponibilidade, resumo com **chave de idempotência**, finalização |
-| Pessoa 4 | Servidor MCP, dados e cliente | 4.1 a 4.9: dados e receitas, **stub do cliente**, ferramentas, servidor HTTP, cliente real, teste sem LLM |
+| Integrante | Área |
+|---|---|
+| Rafaela | Arquitetura e supervisor: estado, `classify`, roteamento, grafo, `main.py`, adaptador do LLM |
+| Camile | Agente de Atendimento: filtro do cardápio, prompts, recomendação, testes de ponta a ponta e demonstração |
+| Lídia | Agente de Pedidos: modelos do pedido, cálculo de valores, `carregar_cardapio` e o fluxo de pedido |
+| Matheus | Servidor MCP, dados, cliente e stub |
 
-*(Substituir "Pessoa N" pelos nomes reais.)* O detalhe de cada etapa está em [`docs/divisao-de-responsabilidades.md`](docs/divisao-de-responsabilidades.md).
+As etapas de cada um estão em [`docs/divisao-de-responsabilidades.md`](docs/divisao-de-responsabilidades.md).
 
 ## Documentação
 
 | Documento | Para quê |
 |---|---|
-| [CafeterIA.md](docs/CafeterIA.md) | Visão geral, arquitetura e escopo do MVP |
-| [passo-a-passo.md](docs/passo-a-passo.md) | Guia de implementação em fases, com marcos |
-| [divisao-de-responsabilidades.md](docs/divisao-de-responsabilidades.md) | Etapas por pessoa, donos de arquivos, dependências |
-| [padronizacao.md](docs/padronizacao.md) | Idioma, nomes, estilo, erros, Git e testes |
 | [contratos.md](docs/contratos.md) | Estado, modelos e ferramentas: entradas e saídas |
+| [padronizacao.md](docs/padronizacao.md) | Idioma, nomes, estilo, erros, Git e testes |
+| [divisao-de-responsabilidades.md](docs/divisao-de-responsabilidades.md) | Etapas por pessoa e donos de arquivos |
+| [passo-a-passo.md](docs/passo-a-passo.md) | Fases de implementação e marcos |
+| [CafeterIA.md](docs/CafeterIA.md) | Visão geral e escopo do MVP |
+| [brand/README.md](docs/brand/README.md) | Identidade visual |

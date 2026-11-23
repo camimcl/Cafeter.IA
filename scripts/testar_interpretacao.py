@@ -3,7 +3,7 @@
 Gasta uma requisição por frase (limite de ~50 por dia nos modelos gratuitos): use com moderação.
 Precisa do .env preenchido e do adaptador do LLM (src/utils/llm_adapter.py).
 
-Uso: python scripts/testar_interpretacao.py
+Uso, na raiz do projeto: python -m scripts.testar_interpretacao
 """
 
 import asyncio

@@ -1,0 +1,64 @@
+/* Cafeter.IA — tokens de marca */
+@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700&family=Nunito:wght@500;700&family=JetBrains+Mono:wght@500&display=swap");
+
+:root {
+  /* Cores */
+  --cafe-espresso: #1F1410;   /* texto, símbolo, fundos escuros */
+  --cafe-ambar: #E9A55B;      /* destaque em fundo escuro, ícone */
+  --cafe-caramelo: #B8652E;   /* destaque em fundo claro, ".IA", rabo */
+  --cafe-creme: #F3E9DC;      /* fundo principal */
+  --cafe-latte: #E3C9A8;      /* bordas, cartões, divisórias */
+  --cafe-rosa: #F2B5B0;       /* detalhes: orelhas, nariz, avisos */
+  --cafe-cacau: #5C4434;      /* texto secundário */
+
+  /* Cor de cada agente */
+  --agente-supervisor: var(--cafe-espresso); /* Senhor Mideis */
+  --agente-atendimento: var(--cafe-rosa);    /* Inbonha */
+  --agente-pedidos: var(--cafe-ambar);       /* Simba */
+  --agente-estoque: var(--cafe-caramelo);    /* Ariela (MCP) */
+
+  /* Tipografia */
+  --fonte-titulo: "Fredoka", system-ui, sans-serif;
+  --fonte-texto: "Nunito", system-ui, sans-serif;
+  --fonte-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* Forma */
+  --raio-pequeno: 8px;
+  --raio-medio: 14px;
+  --raio-grande: 20px;
+  --raio-pilula: 999px;
+}
+
+body {
+  margin: 0;
+  background: var(--cafe-creme);
+  color: var(--cafe-espresso);
+  font-family: var(--fonte-texto);
+}
+
+h1, h2, h3, button { font-family: var(--fonte-titulo); }
+code, pre, .log { font-family: var(--fonte-mono); }
+
+.btn {
+  height: 48px;
+  padding: 0 24px;
+  border-radius: var(--raio-medio);
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+}
+.btn-primario { background: var(--cafe-espresso); color: var(--cafe-creme); border: none; }
+.btn-secundario { background: transparent; color: var(--cafe-espresso); border: 2px solid var(--cafe-espresso); }
+
+.chip-agente {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: var(--raio-pilula);
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--cafe-espresso);
+}
+.chip-agente.supervisor { background: var(--agente-supervisor); color: var(--cafe-creme); }
+.chip-agente.atendimento { background: var(--agente-atendimento); }
+.chip-agente.pedidos { background: var(--agente-pedidos); }
+.chip-agente.estoque { background: var(--agente-estoque); }
