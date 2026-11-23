@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.graph.nodes.carregar_cardapio.carregar_cardapio import carregar_cardapio
+from src.graph.nodes.carregar_cardapio import carregar_cardapio
 
 # Dados fixos que imitam a resposta de chamar_ferramenta("consultar_cardapio", {})
 CARDAPIO_STUB = {
@@ -28,7 +28,7 @@ CARDAPIO_STUB = {
 async def test_carregar_cardapio_sucesso():
     """O campo 'cardapio' chega populado no estado quando o MCP responde com sucesso."""
     with patch(
-        "src.graph.nodes.carregar_cardapio.carregar_cardapio.chamar_ferramenta",
+        "src.graph.nodes.carregar_cardapio.chamar_ferramenta",
         new=AsyncMock(return_value=CARDAPIO_STUB),
     ):
         resultado = await carregar_cardapio({})
@@ -51,7 +51,7 @@ MCP_INDISPONIVEL = {
 async def test_carregar_cardapio_mcp_indisponivel():
     """Com servidor fora do ar, o nó não quebra e devolve mensagem amigável."""
     with patch(
-        "src.graph.nodes.carregar_cardapio.carregar_cardapio.chamar_ferramenta",
+        "src.graph.nodes.carregar_cardapio.chamar_ferramenta",
         new=AsyncMock(return_value=MCP_INDISPONIVEL),
     ):
         resultado = await carregar_cardapio({})

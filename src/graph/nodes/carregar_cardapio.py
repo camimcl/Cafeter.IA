@@ -8,13 +8,7 @@ import logging
 
 from src.graph.state import State
 
-try:
-    from src.utils.mcp_client import chamar_ferramenta
-except ImportError:
-    # Fallback provisório enquanto a Pessoa 4 não finaliza o cliente MCP
-    async def chamar_ferramenta(nome: str, argumentos: dict) -> dict:  # pragma: no cover
-        raise NotImplementedError("Cliente MCP ainda não implementado.")
-
+from src.utils.mcp_client import chamar_ferramenta
 
 logger = logging.getLogger(__name__)
 
