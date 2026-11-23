@@ -28,7 +28,7 @@ def test_classificar_retorna_intencao(
         return SimpleNamespace(intencao=intencao_esperada)
 
     class RunnableFake(Runnable):
-        def invoke(self, prompt):
+        def invoke(self, prompt, config=None, **kwargs):
             return interpretar_saida(prompt)
 
     class LlmFake:
