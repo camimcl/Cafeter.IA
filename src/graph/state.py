@@ -1,5 +1,6 @@
 from typing import TypedDict
 
+
 class State(TypedDict, total=False):
     mensagem: str
     intencao: str
