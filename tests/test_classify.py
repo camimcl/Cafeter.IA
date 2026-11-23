@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 import pytest
-from langchain_core.runnables import RunnableLambda
+from langchain_core.runnables import Runnable
 
 from src.graph.nodes import classify
 from src.graph.prompts.classify_prompt import CLASSIFY_PROMPT
@@ -27,10 +27,14 @@ def test_classificar_retorna_intencao(
         mensagem_recebida["conteudo"] = str(mensagens[-1].content)
         return SimpleNamespace(intencao=intencao_esperada)
 
+    class RunnableFake(Runnable):
+        def invoke(self, prompt):
+            return interpretar_saida(prompt)
+
     class LlmFake:
         def with_structured_output(self, modelo):
             assert modelo is classify.Classificacao
-            return RunnableLambda(interpretar_saida)
+            return RunnableFake()
 
     monkeypatch.setattr(classify, "get_llm", lambda: LlmFake())
 

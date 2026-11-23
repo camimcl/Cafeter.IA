@@ -1,5 +1,6 @@
 from src.utils import llm_adapter
 
+
 def test_get_llm_le_variaveis_de_ambiente(monkeypatch) -> None:
     valores = {
         "LLM_MODEL": "openrouter/free",
