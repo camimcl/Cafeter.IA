@@ -12,7 +12,7 @@ class Classificacao(BaseModel):
 
 
 def classify(state: State) -> dict[str, str]:
-    ''' Classifica a intenção da mensagerm do cliente.'''
+    """Classifica a intenção da mensagerm do cliente."""
 
     llm = get_llm()
     classificador = llm.with_structured_output(Classificacao)
