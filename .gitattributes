@@ -1,0 +1,7 @@
+# Fim de linha LF para todos, em qualquer sistema (evita diferencas falsas no Windows).
+* text=auto eol=lf
+
+# Scripts do Windows continuam com CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
