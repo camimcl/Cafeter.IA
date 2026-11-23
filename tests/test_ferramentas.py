@@ -6,15 +6,47 @@ from pathlib import Path
 
 import pytest
 
-from mcp_server.ferramentas import consultar_cardapio, tem_opcao_sem_lactose
+from mcp_server.ferramentas import (
+    aplicar_acoes,
+    consultar_cardapio,
+    consumo_do_item,
+    tem_opcao_sem_lactose,
+    verificar_estoque,
+)
 
-CAMINHO_CARDAPIO = Path(__file__).parent.parent / "dados" / "cardapio.json"
+PASTA_DADOS = Path(__file__).parent.parent / "dados"
+
+
+def ler_dados(nome_arquivo: str) -> dict:
+    """Lê um arquivo JSON da pasta dados/."""
+    return json.loads((PASTA_DADOS / nome_arquivo).read_text(encoding="utf-8"))
 
 
 @pytest.fixture
 def cardapio() -> list[dict]:
     """Produtos do cardápio semente em dados/cardapio.json."""
-    return json.loads(CAMINHO_CARDAPIO.read_text(encoding="utf-8"))["produtos"]
+    return ler_dados("cardapio.json")["produtos"]
+
+
+@pytest.fixture
+def receitas() -> dict:
+    """Receitas semente em dados/receitas.json."""
+    return ler_dados("receitas.json")["receitas"]
+
+
+@pytest.fixture
+def estoque() -> list[dict]:
+    """Ingredientes do estoque semente em dados/estoque.json."""
+    return ler_dados("estoque.json")["ingredientes"]
+
+
+def item(produto_id: str, quantidade: object, personalizacoes: list | None = None) -> dict:
+    """Monta um item do pedido no formato do contrato."""
+    return {
+        "produto_id": produto_id,
+        "quantidade": quantidade,
+        "personalizacoes": personalizacoes or [],
+    }
 
 
 def ids(resposta: dict) -> list[str]:
@@ -137,3 +169,164 @@ def test_tem_opcao_sem_lactose() -> None:
     assert tem_opcao_sem_lactose(sem_lactose) is True
     assert tem_opcao_sem_lactose(com_aveia) is True
     assert tem_opcao_sem_lactose(com_lactose) is False
+
+
+# --- verificar_estoque: cenários do projeto ---
+
+
+def test_verificar_estoque_cenario_1_suficiente(receitas: dict, estoque: list[dict]) -> None:
+    itens = [item("cappuccino", 2, ["leite_aveia"]), item("pao_de_queijo", 1)]
+    resposta = verificar_estoque(itens, receitas, estoque)
+    assert resposta == {"ok": True, "dados": {"suficiente": True, "faltas": []}}
+
+
+def test_verificar_estoque_cenario_3_falta_leite_aveia(receitas: dict, estoque: list[dict]) -> None:
+    resposta = verificar_estoque([item("cappuccino", 3, ["leite_aveia"])], receitas, estoque)
+    assert resposta == {
+        "ok": True,
+        "dados": {
+            "suficiente": False,
+            "faltas": [{"ingrediente": "leite_aveia", "faltam": 50, "unidade": "ml"}],
+        },
+    }
+
+
+def test_verificar_estoque_falta_em_unidades(receitas: dict, estoque: list[dict]) -> None:
+    resposta = verificar_estoque([item("croissant", 3)], receitas, estoque)
+    faltas = resposta["dados"]["faltas"]
+    assert faltas == [{"ingrediente": "croissant_pronto", "faltam": 1, "unidade": "un"}]
+
+
+def test_verificar_estoque_quantidade_igual_ao_estoque_e_suficiente(
+    receitas: dict, estoque: list[dict]
+) -> None:
+    # Há exatamente 2 croissants no estoque.
+    resposta = verificar_estoque([item("croissant", 2)], receitas, estoque)
+    assert resposta["dados"]["suficiente"] is True
+
+
+def test_verificar_estoque_soma_o_consumo_de_todos_os_itens(
+    receitas: dict, estoque: list[dict]
+) -> None:
+    # Sozinhos cabem (300 ml e 200 ml de aveia), juntos passam dos 400 ml do estoque.
+    itens = [item("cappuccino", 2, ["leite_aveia"]), item("latte", 1, ["leite_aveia"])]
+    faltas = verificar_estoque(itens, receitas, estoque)["dados"]["faltas"]
+    assert faltas == [{"ingrediente": "leite_aveia", "faltam": 100, "unidade": "ml"}]
+
+
+def test_verificar_estoque_sem_aveia_usa_leite_integral(
+    receitas: dict, estoque: list[dict]
+) -> None:
+    # 3 cappuccinos com leite integral cabem, mesmo faltando aveia para 3.
+    resposta = verificar_estoque([item("cappuccino", 3)], receitas, estoque)
+    assert resposta["dados"]["suficiente"] is True
+
+
+def test_verificar_estoque_nao_altera_estoque_nem_receitas(
+    receitas: dict, estoque: list[dict]
+) -> None:
+    estoque_original, receitas_original = deepcopy(estoque), deepcopy(receitas)
+    verificar_estoque([item("cappuccino", 3, ["leite_aveia"])], receitas, estoque)
+    verificar_estoque([item("cappuccino", 2, ["leite_aveia", "extra_shot"])], receitas, estoque)
+    assert estoque == estoque_original
+    assert receitas == receitas_original
+
+
+# --- verificar_estoque: erros ---
+
+
+def test_verificar_estoque_produto_inexistente(receitas: dict, estoque: list[dict]) -> None:
+    resposta = verificar_estoque([item("pizza", 1)], receitas, estoque)
+    assert resposta["ok"] is False
+    assert resposta["erro"]["codigo"] == "PRODUTO_INEXISTENTE"
+
+
+@pytest.mark.parametrize("quantidade", [0, -1, 1.5, 2.0, "2", None, True])
+def test_verificar_estoque_quantidade_invalida(
+    receitas: dict, estoque: list[dict], quantidade: object
+) -> None:
+    resposta = verificar_estoque([item("cappuccino", quantidade)], receitas, estoque)
+    assert resposta["ok"] is False
+    assert resposta["erro"]["codigo"] == "QUANTIDADE_INVALIDA"
+
+
+def test_verificar_estoque_quantidade_ausente(receitas: dict, estoque: list[dict]) -> None:
+    resposta = verificar_estoque([{"produto_id": "cappuccino"}], receitas, estoque)
+    assert resposta["erro"]["codigo"] == "QUANTIDADE_INVALIDA"
+
+
+@pytest.mark.parametrize(
+    "itens",
+    [
+        [],
+        None,
+        [{"quantidade": 1}],
+        [item("cappuccino", 1, ["chantilly"])],
+        [{"produto_id": "cappuccino", "quantidade": 1, "personalizacoes": "leite_aveia"}],
+    ],
+    ids=["vazio", "none", "sem_produto_id", "personalizacao_inexistente", "personalizacoes_texto"],
+)
+def test_verificar_estoque_pedido_invalido(
+    receitas: dict, estoque: list[dict], itens: object
+) -> None:
+    resposta = verificar_estoque(itens, receitas, estoque)
+    assert resposta["ok"] is False
+    assert resposta["erro"]["codigo"] == "PEDIDO_INVALIDO"
+
+
+def test_verificar_estoque_erro_nao_verifica_os_outros_itens(
+    receitas: dict, estoque: list[dict]
+) -> None:
+    # Um item inválido invalida o pedido inteiro, mesmo que os outros estejam certos.
+    itens = [item("cappuccino", 1), item("pizza", 1)]
+    assert verificar_estoque(itens, receitas, estoque)["erro"]["codigo"] == "PRODUTO_INEXISTENTE"
+
+
+# --- aplicar_acoes: as três ações das personalizações ---
+
+
+def test_aplicar_acoes_substituir_mantem_a_quantidade() -> None:
+    acoes = [{"acao": "substituir", "ingrediente": "leite_integral", "por": "leite_aveia"}]
+    resultado = aplicar_acoes({"cafe_graos": 18, "leite_integral": 150}, acoes)
+    assert resultado == {"cafe_graos": 18, "leite_aveia": 150}
+
+
+def test_aplicar_acoes_adicionar_soma() -> None:
+    acoes = [{"acao": "adicionar", "ingrediente": "cafe_graos", "quantidade": 18}]
+    assert aplicar_acoes({"cafe_graos": 18}, acoes) == {"cafe_graos": 36}
+
+
+def test_aplicar_acoes_remover_tira_o_ingrediente() -> None:
+    acoes = [{"acao": "remover", "ingrediente": "calda_chocolate"}]
+    resultado = aplicar_acoes({"cafe_graos": 18, "calda_chocolate": 30}, acoes)
+    assert resultado == {"cafe_graos": 18}
+
+
+def test_aplicar_acoes_nao_altera_a_receita_original() -> None:
+    original = {"leite_integral": 150}
+    acoes = [{"acao": "substituir", "ingrediente": "leite_integral", "por": "leite_aveia"}]
+    aplicar_acoes(original, acoes)
+    assert original == {"leite_integral": 150}
+
+
+def test_aplicar_acoes_desconhecida_levanta_erro() -> None:
+    with pytest.raises(ValueError):
+        aplicar_acoes({"cafe_graos": 18}, [{"acao": "dobrar", "ingrediente": "cafe_graos"}])
+
+
+# --- consumo_do_item: receita x quantidade, com personalizações ---
+
+
+def test_consumo_do_item_sem_personalizacao(receitas: dict) -> None:
+    consumo = consumo_do_item(item("cappuccino", 2), receitas)
+    assert consumo == {"cafe_graos": 36, "leite_integral": 300}
+
+
+def test_consumo_do_item_com_aveia_e_shot_extra(receitas: dict) -> None:
+    consumo = consumo_do_item(item("cappuccino", 2, ["leite_aveia", "extra_shot"]), receitas)
+    assert consumo == {"cafe_graos": 72, "leite_aveia": 300}
+
+
+def test_consumo_do_item_personalizacao_repetida_conta_uma_vez(receitas: dict) -> None:
+    repetida = item("cappuccino", 1, ["extra_shot", "extra_shot"])
+    assert consumo_do_item(repetida, receitas) == {"cafe_graos": 36, "leite_integral": 150}
