@@ -3,8 +3,8 @@ from types import SimpleNamespace
 import pytest
 from langchain_core.runnables import RunnableLambda
 
-from src.graph.nodes.classify import classify
-from src.graph.prompts.classify_prompt import CLASSIFICAR_PROMPT
+from src.graph.nodes import classify
+from src.graph.prompts.classify_prompt import CLASSIFY_PROMPT
 
 
 @pytest.mark.parametrize(
@@ -34,16 +34,16 @@ def test_classificar_retorna_intencao(
 
     monkeypatch.setattr(classify, "get_llm", lambda: LlmFake())
 
-    resultado = classify.classificar({"mensagem": mensagem})
+    resultado = classify.classify({"mensagem": mensagem})
 
     assert resultado == {"intencao": intencao_esperada}
     assert mensagem_recebida["conteudo"] == mensagem
 
 
 def test_prompt_classificar_exige_mensagem() -> None:
-    assert CLASSIFICAR_PROMPT.input_variables == ["mensagem"]
+    assert CLASSIFY_PROMPT.input_variables == ["mensagem"]
 
-    prompt = CLASSIFICAR_PROMPT.invoke({"mensagem": "Quero um pedido"})
+    prompt = CLASSIFY_PROMPT.invoke({"mensagem": "Quero um pedido"})
 
     mensagens = prompt.to_messages()
 

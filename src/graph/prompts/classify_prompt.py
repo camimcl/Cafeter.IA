@@ -1,6 +1,6 @@
 from langchain_core.prompts import ChatPromptTemplate
 
-CLASSIFICAR_PROMPT = ChatPromptTemplate.from_messages(
+CLASSIFY_PROMPT = ChatPromptTemplate.from_messages(
     [
         (
             "system",
